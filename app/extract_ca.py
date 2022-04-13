@@ -3,6 +3,8 @@ import pathlib
 import pandas as pd
 import re
 import os
+import datetime as dt
+
 def get_downloaded_releve(home_subfolder: str) -> pathlib.Path:
     downloads = pathlib.Path.home().joinpath(home_subfolder)
     f: pathlib.Path
@@ -16,7 +18,7 @@ def archive_releve(f: pathlib.Path, target_folders: list):
         os.mkdir(archive_folder)
     os.rename(f, archive_folder.joinpath(f.name))
 
-def extract_raw_releve(download_folder: str, archive_subfolder: str, archive: bool) -> pd.DataFrame:
+def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: bool) -> pd.DataFrame:
     f = get_downloaded_releve(download_folder)
     if f is None:
         print('no file found')
@@ -50,3 +52,40 @@ def extract_raw_releve(download_folder: str, archive_subfolder: str, archive: bo
             archive_releve(f, [download_folder, archive_subfolder])
             print(f'file archived in {archive_subfolder}')
         return df
+
+def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFrame:
+    begin_of_week = dt.date.today()
+    begin_of_week = begin_of_week - dt.timedelta(days=begin_of_week.isoweekday() - 1)
+
+    # Transformations
+    # replace the backslash characters
+    raw_frame['Libellé'] = raw_frame['Libellé'].replace(r'\n', '', regex=True)
+    raw_frame['Libellé'] = raw_frame['Libellé'].replace(r'\s{2,}', ' ', regex=True)
+    raw_frame['Date'] = raw_frame['Date'].dt.date
+
+    # filter after a certain date
+    raw_frame = raw_frame[raw_frame['Date'] >= begin_of_week]
+
+    # transform the columns
+    raw_frame = raw_frame.rename(columns={'Libellé': 'Description', 'Débit euros': 'Dépense',
+                    'Crédit euros': 'Recette'})
+
+    raw_frame['N° de référence'] = ''
+    raw_frame['Taux de remboursement'] = ''
+    raw_frame['Compte'] = 'Crédit Agricole'
+    raw_frame['Catégorie'] = ''
+
+    raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
+             'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
+    # sort ascending
+    raw_frame = raw_frame.sort_values(by='Date')
+
+    # capitalize the sentences
+    raw_frame['Description'] = raw_frame['Description'].str.title()
+
+    # manage exclusions
+    raw_frame['excluded'] = False
+    for exclusion in exclusion_list:
+        raw_frame['excluded'] = raw_frame['excluded'] | raw_frame['Description'].str.contains(exclusion)
+
+    return raw_frame
