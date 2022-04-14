@@ -19,9 +19,6 @@ def extract_cash_info() -> pd.DataFrame:
     return cash_df
 
 def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
-    begin_of_week = dt.date.today()
-    begin_of_week = begin_of_week - dt.timedelta(days=begin_of_week.isoweekday() - 1)
-
     # filter after a certain date
     raw_frame['Date'] = pd.to_datetime(raw_frame['Date'], format='%d/%m/%Y')
     raw_frame['Date'] = raw_frame['Date'].dt.date
@@ -37,16 +34,10 @@ def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     raw_frame['Taux de remboursement'] = ''
     raw_frame['Compte'] = 'Liquide Vincent'
 
-    # filter the raw frame
-    raw_frame = raw_frame[raw_frame['Date'] >= begin_of_week]
-
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
              'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
 
     raw_frame['excluded'] = False
-
-    # sort ascending
-    raw_frame = raw_frame.sort_values(by='Date')
 
     return raw_frame
 

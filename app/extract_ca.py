@@ -21,16 +21,14 @@ def archive_releve(f: pathlib.Path, target_folders: list):
 def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: bool) -> pd.DataFrame:
     f = get_downloaded_releve(download_folder)
     if f is None:
-        print('no file found')
+        pass
     else:
-        print(f'file {f.name} retrieved in {download_folder}')
-
         book: openpyxl.Workbook
         book = openpyxl.open(f, read_only=True)
-        print('workbook opened')
+
         names = book.sheetnames
         content = book[names[0]]
-        print('content extracted')
+
         # goal create a clean table of values
         pd.set_option('display.max_columns', None)
         df: pd.DataFrame
@@ -46,7 +44,7 @@ def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: boo
 
         # create the dataframe
         df = pd.DataFrame(data=values, columns=headers)
-        print(f'data frame created, {len(values)} values found')
+
         # archive the file
         if archive:
             archive_releve(f, [download_folder, archive_subfolder])
@@ -54,17 +52,10 @@ def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: boo
         return df
 
 def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFrame:
-    begin_of_week = dt.date.today()
-    begin_of_week = begin_of_week - dt.timedelta(days=begin_of_week.isoweekday() - 1)
-
     # Transformations
     # replace the backslash characters
     raw_frame['Libellé'] = raw_frame['Libellé'].replace(r'\n', '', regex=True)
     raw_frame['Libellé'] = raw_frame['Libellé'].replace(r'\s{2,}', ' ', regex=True)
-    raw_frame['Date'] = raw_frame['Date'].dt.date
-
-    # filter after a certain date
-    raw_frame = raw_frame[raw_frame['Date'] >= begin_of_week]
 
     # transform the columns
     raw_frame = raw_frame.rename(columns={'Libellé': 'Description', 'Débit euros': 'Dépense',
@@ -74,11 +65,10 @@ def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFra
     raw_frame['Taux de remboursement'] = ''
     raw_frame['Compte'] = 'Crédit Agricole'
     raw_frame['Catégorie'] = ''
+    raw_frame['Date'] = raw_frame['Date'].dt.date
 
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
              'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
-    # sort ascending
-    raw_frame = raw_frame.sort_values(by='Date')
 
     # capitalize the sentences
     raw_frame['Description'] = raw_frame['Description'].str.title()
