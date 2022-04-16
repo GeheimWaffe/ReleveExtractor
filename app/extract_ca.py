@@ -70,12 +70,12 @@ def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFra
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
              'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
 
-    # capitalize the sentences
-    raw_frame['Description'] = raw_frame['Description'].str.title()
-
     # manage exclusions
     raw_frame['excluded'] = False
     for exclusion in exclusion_list:
         raw_frame['excluded'] = raw_frame['excluded'] | raw_frame['Description'].str.contains(exclusion)
+
+    # capitalize the sentences
+    raw_frame['Description'] = raw_frame['Description'].str.title()
 
     return raw_frame

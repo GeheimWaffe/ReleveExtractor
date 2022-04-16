@@ -13,8 +13,5 @@ def filter_by_date(df: pd.DataFrame) -> pd.DataFrame:
     # filter
     df = df[df['Date'] >= begin_of_week]
 
-    # sort
-    df = df.sort_values('Date')
-
     # end
     return df

@@ -3,6 +3,7 @@ import app.extract_cash as ecs
 import app.extract_ba as ecb
 import app.clean as c
 import app.store as s
+from configmanager import AppConfiguration
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -10,12 +11,16 @@ def print_hi(name):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    # load config
+    appconfig = AppConfiguration()
+
     print('*** starting extraction... ***')
     # initialize data frame list
     df_list = []
     # extracting the Crédit Agricole
     print('* extracting Crédit Agricole *')
-    df_ca = eca.extract_releve_ca('Téléchargements', 'ArchiveCA', True)
+    df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, True)
+
     if df_ca is None:
         print('* no extract found *')
     else:
@@ -28,7 +33,7 @@ if __name__ == '__main__':
 
     # extracting the cash
     print('* extracting Liquide Vincent *')
-    df_cash = ecs.extract_cash_info()
+    df_cash = ecs.extract_cash_info(appconfig.service_account_key)
     if df_cash is None:
         print('* no extract found *')
     else:
@@ -39,7 +44,7 @@ if __name__ == '__main__':
 
     # extracting Boursorama
     print('* extracting Boursorama *')
-    df_ba = ecb.extract_releve_ba('Téléchargements', 'ArchiveBA', True)
+    df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, True)
     if df_ba is None:
         print('* no extract found *')
     else:

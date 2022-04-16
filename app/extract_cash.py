@@ -2,9 +2,10 @@ import pygsheets
 import pandas as pd
 import datetime as dt
 import numpy as np
-
-def extract_cash_info() -> pd.DataFrame:
-    pg = pygsheets.authorize(service_account_file='/home/vincent/Credentials/le-projet-de-vincent-ae15acfb90cd.json')
+from pathlib import Path
+def extract_cash_info(service_account_file: str) -> pd.DataFrame:
+    file = Path(service_account_file)
+    pg = pygsheets.authorize(service_account_file=service_account_file)
     # select the worksheet
     wb = pg.open('Dépenses Liquides')
 

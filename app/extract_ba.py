@@ -38,8 +38,8 @@ def extract_releve_ba(download_folder: str, archive_subfolder: str, archive: boo
 
 def clean_releve_ba(raw_frame: pd.DataFrame) -> pd.DataFrame:
     # Transformations
-    raw_frame['Dépense'] = raw_frame['amount'].where(raw_frame['amount'] > 0, 0).abs()
-    raw_frame['Recette'] = raw_frame['amount'].where(raw_frame['amount'] < 0, 0)
+    raw_frame['Dépense'] = raw_frame['amount'].where(raw_frame['amount'] < 0, 0).abs()
+    raw_frame['Recette'] = raw_frame['amount'].where(raw_frame['amount'] > 0, 0)
     raw_frame['label'] = raw_frame['label'].str.title()
 
     # transform the columns
