@@ -10,38 +10,104 @@ import datetime as dt
 import pandas as pd
 
 
-def generate_table_cell_text(content: str, stylename: str = '') -> TableCell:
+def generate_cell_empty(stylename: str = '', rule: str = '') -> Element:
+    result = TableCell()
+    if stylename != '':
+        result.setAttribute('stylename', stylename)
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
+    return result
+
+
+def generate_table_cell_text(content: str, stylename: str = '', rule: str = '') -> Element:
     result = TableCell(valuetype='string')
     if stylename != '':
         result.setAttribute('stylename', stylename)
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
     result.addElement(P(text=content))
     return result
 
 
-def generate_table_cell_float(content: float, stylename: str = '') -> TableCell:
+def generate_table_cell_float(content: float, stylename: str = '', rule: str = '') -> Element:
     result = TableCell(valuetype='float', value=str(content))
     if stylename != '':
         result.setAttribute('stylename', stylename)
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
     result.addElement(P(text=str(content)))
     return result
 
 
-def generate_table_cell_datetime(content: dt.datetime, stylename: str = '') -> TableCell:
+def generate_table_cell_datetime(content: dt.datetime, stylename: str = '', rule: str = '') -> Element:
     result = TableCell(valuetype='date', datevalue=content.strftime('%Y-%m-%dT%H:%M:%S'))
     if stylename != '':
         result.setAttribute('stylename', stylename)
-    result.addElement(P(text=content))
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
+    if content.hour + content.minute + content.second == 0:
+        result.addElement(P(text=content.strftime('%d/%m/%Y')))
+    else:
+        result.addElement(P(text=content.strftime('%d/%m/%Y %H:%M')))
     return result
 
 
 def get_cell_column_span(cell: Element) -> int:
-    span = cell.getAttribute('numbercolumnsrepeated')
-    return 1 if span is None else int(span)
+    try:
+        span = cell.getAttribute('numbercolumnsrepeated')
+        return 1 if span is None else int(span)
+    except ValueError:
+        return 1
 
 
 def get_element_style(elt: Element) -> str:
     style = elt.getAttribute('stylename')
     return '' if style is None else style
+
+
+def get_cell_validation(elt: Element) -> str:
+    rule = elt.getAttribute('contentvalidationname')
+    return '' if rule is None else rule
+
+
+class RowWrapper:
+    __element__: Element
+
+    def __init__(self, stylename: str = ''):
+        self.__element__ = TableRow()
+        if stylename == '':
+            self.__element__.setAttribute('stylename', stylename)
+
+    @property
+    def element(self) -> Element:
+        return self.__element__
+
+    @element.setter
+    def element(self, elt: Element):
+        self.__element__ = elt
+
+    def get_cell_count(self) -> int:
+        result = 0
+        for c in self.__element__.getElementsByType(TableCell):
+            result += get_cell_column_span(c)
+        return result
+
+    def get_cell_style(self, index: int) -> str:
+        max_index = 0
+        for c in self.__element__.getElementsByType(TableCell):
+            max_index += get_cell_column_span(c)
+            if index < max_index:
+                if get_element_style(c) == '':
+                    return get_element_style(self.__element__)
+                else:
+                    return get_element_style(c)
+
+    def get_cell_validation(self, index: int) -> str:
+        max_index = 0
+        for c in self.__element__.getElementsByType(TableCell):
+            max_index += get_cell_column_span(c)
+            if index < max_index:
+                return get_cell_validation(c)
 
 
 class SheetWrapper:
@@ -82,7 +148,6 @@ class SheetWrapper:
             'append' : finds the first empty row and then appends."""
 
         empty_row = None
-        styles = []
         if mode == 'overwrite':
             # delete all the rows
             rows = self.__sheet__.getElementsByType(TableRow)
@@ -90,14 +155,12 @@ class SheetWrapper:
                 self.__sheet__.removeChild(r)
         elif mode == 'append':
             # find the first empty row
-            empty_row: TableRow
             rows = self.__sheet__.getElementsByType(TableRow)
             for r in rows:
                 if self.is_row_empty(r):
-                    empty_row = r
+                    empty_row = RowWrapper()
+                    empty_row.element = r
                     break
-            # get the row styles
-            styles = self.get_row_style_array(empty_row)
 
         # create the headers
         if include_headers:
@@ -110,18 +173,23 @@ class SheetWrapper:
         for df_row in df.itertuples(index=False):
             row = TableRow()
             for i in range(len(df.columns)):
-                if len(styles) > 0:
-                    style = styles[min(i, len(styles)-1)]
-                else:
-                    style = ''
+                style = empty_row.get_cell_style(i)
+                rule = empty_row.get_cell_validation(i)
                 if df.dtypes[i] == 'float64':
-                    row.addElement(generate_table_cell_float(df_row[i], style))
+                    row.addElement(generate_table_cell_float(df_row[i], style, rule))
                 elif df.dtypes[i] == r'datetime64[ns]':
-                    row.addElement(generate_table_cell_datetime(df_row[i], style))
+                    row.addElement(generate_table_cell_datetime(df_row[i], style, rule))
                 else:
-                    row.addElement(generate_table_cell_text(df_row[i], style))
+                    row.addElement(generate_table_cell_text(df_row[i], style, rule))
+
+            # if there are extra styles, create empty cells
+            if empty_row.get_cell_count() > len(df.columns):
+                for i in range(len(df.columns), empty_row.get_cell_count()):
+                    row.addElement(generate_cell_empty(empty_row.get_cell_style(i),
+                                                       empty_row.get_cell_validation(i)))
+
             # add the row to the table
-            self.__sheet__.insertBefore(row, empty_row)
+            self.__sheet__.insertBefore(row, empty_row.element)
 
     def get_row_style_array(self, row: Element) -> list:
         """ Function that analyzes a row and returns an array of style names.

@@ -25,7 +25,9 @@ class MyTestCase(unittest.TestCase):
         # generate a dataframe
         df = pd.DataFrame(values, columns=['Text', 'Integer', 'Float', 'Date', 'CurrentTime'])
         df['Date'] = pd.to_datetime(df['Date'])
+        df['pureDate'] = df['Date'].dt.date
         df['CurrentTime'] = pd.to_datetime(df['CurrentTime'])
+        df = df[['Text', 'Integer', 'Float', 'pureDate', 'Date', 'CurrentTime']]
 
         print(df.dtypes)
         # get the sheet

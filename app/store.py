@@ -11,6 +11,9 @@ def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_exclud
 
 
 def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str):
+    # reconvert the date column to date time
+    df['Date'] = pd.to_datetime(df['Date'])
+
     odsfile = pathlib.Path.home().joinpath(*comptes_path)
     wb = op.SpreadsheetWrapper()
     wb.load(odsfile)
