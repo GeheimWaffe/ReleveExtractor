@@ -5,9 +5,11 @@ import app.clean as c
 import app.store as s
 from configmanager import AppConfiguration
 
+
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
@@ -19,7 +21,7 @@ if __name__ == '__main__':
     df_list = []
     # extracting the Crédit Agricole
     print('* extracting Crédit Agricole *')
-    df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, True)
+    df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, appconfig.to_archive)
 
     if df_ca is None:
         print('* no extract found *')
@@ -44,7 +46,7 @@ if __name__ == '__main__':
 
     # extracting Boursorama
     print('* extracting Boursorama *')
-    df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, True)
+    df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, appconfig.to_archive)
     if df_ba is None:
         print('* no extract found *')
     else:
@@ -59,8 +61,8 @@ if __name__ == '__main__':
     global_df = c.filter_by_date(global_df)
 
     print('*** storing the result... ***')
-    s.store_frame(global_df, ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'])
-    #s.store_frame_to_ods(df_ca, ['Bureau', 'Comptes_2022.ods'], 'Import')
+    # s.store_frame(global_df, ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'])
+    s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
     print('*** extraction finished ***')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

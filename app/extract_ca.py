@@ -5,6 +5,7 @@ import re
 import os
 import datetime as dt
 
+
 def get_downloaded_releve(home_subfolder: str) -> pathlib.Path:
     downloads = pathlib.Path.home().joinpath(home_subfolder)
     f: pathlib.Path
@@ -12,11 +13,13 @@ def get_downloaded_releve(home_subfolder: str) -> pathlib.Path:
         if re.match(r'CA\d{8}_\d{6}', f.name):
             return f
 
+
 def archive_releve(f: pathlib.Path, target_folders: list):
     archive_folder = pathlib.Path.home().joinpath(*target_folders)
     if not archive_folder.exists():
         os.mkdir(archive_folder)
     os.rename(f, archive_folder.joinpath(f.name))
+
 
 def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: bool) -> pd.DataFrame:
     f = get_downloaded_releve(download_folder)
@@ -32,7 +35,7 @@ def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: boo
         # goal create a clean table of values
         pd.set_option('display.max_columns', None)
         df: pd.DataFrame
-        headers= []
+        headers = []
         values = []
         start_of_values = False
         for v in content.values:
@@ -51,6 +54,7 @@ def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: boo
             print(f'file archived in {archive_subfolder}')
         return df
 
+
 def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFrame:
     # Transformations
     # replace the backslash characters
@@ -59,7 +63,7 @@ def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFra
 
     # transform the columns
     raw_frame = raw_frame.rename(columns={'Libellé': 'Description', 'Débit euros': 'Dépense',
-                    'Crédit euros': 'Recette'})
+                                          'Crédit euros': 'Recette'})
 
     raw_frame['N° de référence'] = ''
     raw_frame['Taux de remboursement'] = ''
@@ -68,7 +72,7 @@ def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFra
     raw_frame['Date'] = raw_frame['Date'].dt.date
 
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
-             'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
+                           'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
 
     # manage exclusions
     raw_frame['excluded'] = False

@@ -1,5 +1,6 @@
 import pandas as pd
 import pathlib
+import app.odfpandas as op
 
 
 def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_excluded: list):
@@ -10,7 +11,12 @@ def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_exclud
 
 
 def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str):
-    with pd.ExcelWriter(pathlib.Path.home().joinpath(*comptes_path), engine='odf', mode='a', if_sheet_exists='replace') as wo:
-        df[df['excluded'] == False].to_excel(wo, sheet_name='Import')
-
-
+    odsfile = pathlib.Path.home().joinpath(*comptes_path)
+    wb = op.SpreadsheetWrapper()
+    wb.load(odsfile)
+    # get the sheet
+    ws: op.SheetWrapper
+    ws = wb.get_sheets().get(comptes_sheet)
+    if not ws is None:
+        ws.insert_from_dataframe(df, include_headers=False, mode='append')
+        wb.save(odsfile.parent.joinpath('testcomptes.ods'))

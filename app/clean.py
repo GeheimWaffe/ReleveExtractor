@@ -1,6 +1,7 @@
 import pandas as pd
 import datetime as dt
 
+
 def concat_frames(frame_list: list) -> pd.DataFrame:
     result = pd.concat(frame_list)
     return result

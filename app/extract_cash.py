@@ -3,6 +3,8 @@ import pandas as pd
 import datetime as dt
 import numpy as np
 from pathlib import Path
+
+
 def extract_cash_info(service_account_file: str) -> pd.DataFrame:
     file = Path(service_account_file)
     pg = pygsheets.authorize(service_account_file=service_account_file)
@@ -19,6 +21,7 @@ def extract_cash_info(service_account_file: str) -> pd.DataFrame:
     # end
     return cash_df
 
+
 def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     # filter after a certain date
     raw_frame['Date'] = pd.to_datetime(raw_frame['Date'], format='%d/%m/%Y')
@@ -34,11 +37,11 @@ def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     raw_frame['N° de référence'] = ''
     raw_frame['Taux de remboursement'] = ''
     raw_frame['Compte'] = 'Liquide Vincent'
+    raw_frame.loc['excluded'] = False
 
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
-             'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
+                           'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'excluded']]
 
-    raw_frame['excluded'] = False
 
     return raw_frame
 

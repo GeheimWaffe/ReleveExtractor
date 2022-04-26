@@ -2,7 +2,6 @@ import pathlib
 import pandas as pd
 import re
 import os
-import datetime as dt
 
 
 def get_downloaded_releve(home_subfolder: str) -> pathlib.Path:
@@ -52,7 +51,7 @@ def clean_releve_ba(raw_frame: pd.DataFrame) -> pd.DataFrame:
     raw_frame['Date'] = raw_frame['Date'].dt.date
 
     raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
-                            'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
+                           'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
 
     # manage exclusions
     raw_frame['excluded'] = False

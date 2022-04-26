@@ -20,6 +20,7 @@ class AppConfiguration:
         self.__cp__.add_section('ARCHIVE')
         self.__cp__['ARCHIVE']['CreditAgricoleSubfolder'] = 'ArchiveCA'
         self.__cp__['ARCHIVE']['BoursoramaSubfolder'] = 'ArchiveBA'
+        self.__cp__['ARCHIVE']['Archive'] = 'True'
 
         # now loading the existing config if any
         cf = Path(self.__config_file__)
@@ -49,3 +50,7 @@ class AppConfiguration:
     @property
     def ba_subfolder(self):
         return self.__cp__.get('ARCHIVE', 'BoursoramaSubfolder')
+
+    @property
+    def to_archive(self) -> bool:
+        return self.__cp__.getboolean('ARCHIVE', 'Archive')
