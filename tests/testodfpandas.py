@@ -1,5 +1,5 @@
 import unittest
-import app.odfpandas as op
+import pyfin.odfpandas as op
 import pathlib
 import datetime as dt
 import pandas as pd

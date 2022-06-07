@@ -1,26 +1,32 @@
 import pygsheets
 import pandas as pd
-import datetime as dt
 import numpy as np
 from pathlib import Path
 
 
 def extract_cash_info(service_account_file: str) -> pd.DataFrame:
     file = Path(service_account_file)
-    pg = pygsheets.authorize(service_account_file=service_account_file)
-    # select the worksheet
-    wb = pg.open('Dépenses Liquides')
+    # print the absolute path
+    print('*** absolute path of the credentials :')
+    print(file.absolute())
 
-    # get the worksheet
-    ws: pygsheets.Worksheet
-    ws = wb[0]
+    try:
+        pg = pygsheets.authorize(service_account_file=service_account_file)
+        # select the worksheet
+        wb = pg.open('Dépenses Liquides')
 
-    # extract the dataframe
-    cash_df = ws.get_as_df()
+        # get the worksheet
+        ws: pygsheets.Worksheet
+        ws = wb[0]
 
-    # end
-    return cash_df
+        # extract the dataframe
+        cash_df = ws.get_as_df()
 
+        # end
+        return cash_df
+    except FileNotFoundError:
+        print('file not found')
+        print(file.absolute())
 
 def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     # filter after a certain date

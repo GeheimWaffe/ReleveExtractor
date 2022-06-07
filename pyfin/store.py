@@ -1,7 +1,6 @@
 import pandas as pd
 import pathlib
-import app.odfpandas as op
-
+import pyfin.odfpandas as op
 
 def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_excluded: list):
     # save the correct rows

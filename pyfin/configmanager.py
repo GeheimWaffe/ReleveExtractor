@@ -2,12 +2,19 @@ from configparser import SafeConfigParser
 from pathlib import Path
 
 
+
 class AppConfiguration:
     __config_file__ = 'app.conf'
+
+    def get_filepath(self) -> Path:
+        return Path(__file__).parent.joinpath(self.__config_file__)
 
     def __init__(self):
         """ Initialize a config parser ; load it with all the properties ;
         then match with an existing config file ; and then save"""
+        print('init AppConfiguration')
+        print(f'path of the configuration file : {self.get_filepath()}')
+
         self.__cp__ = SafeConfigParser()
 
         # configuring the default config file
@@ -32,7 +39,7 @@ class AppConfiguration:
                     self.__cp__[s][o] = existing_cp.get(s, o)
 
         # and then we dump the new and updated config file
-        with open(self.__config_file__, 'w') as target:
+        with open(self.get_filepath(), 'w') as target:
             self.__cp__.write(target)
 
     @property
@@ -42,6 +49,10 @@ class AppConfiguration:
     @property
     def service_account_key(self):
         return self.__cp__.get('CREDENTIALS', 'ServiceAccountKey')
+
+    @service_account_key.setter
+    def service_account_key(self, value: str):
+        self.__cp__['CREDENTIALS']['ServiceAccountKey'] = value
 
     @property
     def ca_subfolder(self):
