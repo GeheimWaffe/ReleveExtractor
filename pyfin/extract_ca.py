@@ -51,7 +51,6 @@ def extract_releve_ca(download_folder: str, archive_subfolder: str, archive: boo
         # archive the file
         if archive:
             archive_releve(f, [download_folder, archive_subfolder])
-            print(f'file archived in {archive_subfolder}')
         return df
 
 

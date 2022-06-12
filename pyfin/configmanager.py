@@ -2,19 +2,17 @@ from configparser import SafeConfigParser
 from pathlib import Path
 
 
-
 class AppConfiguration:
-    __config_file__ = 'app.conf'
+    __config_file_name__ = 'pyfin.conf'
 
     def get_filepath(self) -> Path:
-        return Path(__file__).parent.joinpath(self.__config_file__)
+        return Path.home().joinpath(self.__config_file_name__)
 
-    def __init__(self):
+    def __init__(self, config_file: Path = None):
         """ Initialize a config parser ; load it with all the properties ;
-        then match with an existing config file ; and then save"""
-        print('init AppConfiguration')
-        print(f'path of the configuration file : {self.get_filepath()}')
+        then match with an existing config file ; and then save
 
+        :param config_file: if a custom config file is a provided as a Path"""
         self.__cp__ = SafeConfigParser()
 
         # configuring the default config file
@@ -30,7 +28,11 @@ class AppConfiguration:
         self.__cp__['ARCHIVE']['Archive'] = 'True'
 
         # now loading the existing config if any
-        cf = Path(self.__config_file__)
+        if config_file is None:
+            cf = self.get_filepath()
+        else:
+            cf = config_file
+
         if cf.exists():
             existing_cp = SafeConfigParser()
             existing_cp.read(cf)

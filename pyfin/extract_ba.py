@@ -30,7 +30,6 @@ def extract_releve_ba(download_folder: str, archive_subfolder: str, archive: boo
         # archive the file
         if archive:
             archive_releve(file, [download_folder, archive_subfolder])
-            print(f'file archived in {archive_subfolder}')
 
         return df
 

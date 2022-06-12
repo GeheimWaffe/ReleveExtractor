@@ -6,10 +6,6 @@ from pathlib import Path
 
 def extract_cash_info(service_account_file: str) -> pd.DataFrame:
     file = Path(service_account_file)
-    # print the absolute path
-    print('*** absolute path of the credentials :')
-    print(file.absolute())
-
     try:
         pg = pygsheets.authorize(service_account_file=service_account_file)
         # select the worksheet
@@ -25,8 +21,7 @@ def extract_cash_info(service_account_file: str) -> pd.DataFrame:
         # end
         return cash_df
     except FileNotFoundError:
-        print('file not found')
-        print(file.absolute())
+        return None
 
 def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     # filter after a certain date
