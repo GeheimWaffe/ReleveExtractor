@@ -1,0 +1,3 @@
+[console_scripts]
+pyfin_launch = pyfin.__main__:main
+
