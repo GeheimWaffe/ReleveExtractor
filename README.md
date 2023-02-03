@@ -24,9 +24,14 @@ Create a setup.py file with
 For the entry point, you have to point to a main module in the package
 
 ### How to build
+- update the version number
+- in the terminal, navigate to the project folder
 - run the command `sudo python3 setup.py bdist_wheel`
 - This produces a build file in the dist folder
 I have discovered that only this way works
+
+### How to install
+- run the command pip-install
 
 ### How to test
 Once you're done you just have to call in the terminal the name of your entry point

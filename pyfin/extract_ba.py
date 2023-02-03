@@ -48,10 +48,7 @@ def clean_releve_ba(raw_frame: pd.DataFrame) -> pd.DataFrame:
     raw_frame['Compte'] = 'Boursorama'
     raw_frame['Catégorie'] = ''
     raw_frame['Date'] = raw_frame['Date'].dt.date
-
-    raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
-                           'Recette', 'Taux de remboursement', 'Compte', 'Catégorie']]
-
+    raw_frame['Index'] = ''
     # manage exclusions
     raw_frame['excluded'] = False
 

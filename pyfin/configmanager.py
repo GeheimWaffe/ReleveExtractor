@@ -1,6 +1,6 @@
 from configparser import SafeConfigParser
 from pathlib import Path
-
+import csv
 
 class AppConfiguration:
     __config_file_name__ = 'pyfin.conf'
@@ -26,6 +26,9 @@ class AppConfiguration:
         self.__cp__['ARCHIVE']['CreditAgricoleSubfolder'] = 'ArchiveCA'
         self.__cp__['ARCHIVE']['BoursoramaSubfolder'] = 'ArchiveBA'
         self.__cp__['ARCHIVE']['Archive'] = 'True'
+
+        self.__cp__.add_section('MAPPINGS')
+        self.__cp__['MAPPINGS']['MappingFile'] = 'pyfin_loader_category_mappings.csv'
 
         # now loading the existing config if any
         if config_file is None:
@@ -67,3 +70,27 @@ class AppConfiguration:
     @property
     def to_archive(self) -> bool:
         return self.__cp__.getboolean('ARCHIVE', 'Archive')
+
+    @property
+    def mapping_file(self) -> str:
+        return self.__cp__.get('MAPPINGS', 'MappingFile')
+
+class CategoryMapper:
+    """ class used for mapping categories """
+    __mappings__ = []
+
+    def load_csv(self, csv_path: Path) -> str:
+        if csv_path.exists() and csv_path.is_file() and csv_path.suffix == '.csv':
+            with open(csv_path, newline='') as csv_file:
+                reader = csv.reader(csv_file, delimiter=',', quotechar='"')
+                for line in reader:
+                    self.__mappings__.append(line)
+
+            return f'round rows : {self.__mappings__}'
+        else:
+            return f'no file found for path, path incorrect, or wrong stem : {csv_path}'
+
+    def get_mappins(self) -> list:
+        """ return the mappings
+        :return a set of (mask, category) maps"""
+        return self.__mappings__
