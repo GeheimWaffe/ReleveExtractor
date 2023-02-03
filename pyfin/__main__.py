@@ -33,6 +33,7 @@ def main(args=None, config_file: Path = None):
     intervalcount = 1
     credentials = ''
     archive = True
+    list_mappings = False
 
     # retrieving the args
     if args is None:

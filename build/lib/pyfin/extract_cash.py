@@ -39,10 +39,7 @@ def clean_cash_info(raw_frame: pd.DataFrame) -> pd.DataFrame:
     raw_frame['Taux de remboursement'] = ''
     raw_frame['Compte'] = 'Liquide Vincent'
     raw_frame['excluded'] = False
-
-    raw_frame = raw_frame[['Date', 'Description', 'Dépense', 'N° de référence',
-                           'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'excluded']]
-
+    raw_frame['Index'] = ''
 
     return raw_frame
 

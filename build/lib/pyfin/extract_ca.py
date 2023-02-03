@@ -81,4 +81,6 @@ def clean_releve_ca(raw_frame: pd.DataFrame, exclusion_list: list) -> pd.DataFra
     # capitalize the sentences
     raw_frame['Description'] = raw_frame['Description'].str.title()
 
+    raw_frame['Index'] = ''
+
     return raw_frame

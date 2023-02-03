@@ -31,7 +31,8 @@ For the entry point, you have to point to a main module in the package
 I have discovered that only this way works
 
 ### How to install
-- run the command pip-install
+- navigate to the subfolder /dist
+- run pip install <name of the wheel>
 
 ### How to test
 Once you're done you just have to call in the terminal the name of your entry point
