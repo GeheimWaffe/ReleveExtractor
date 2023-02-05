@@ -39,6 +39,9 @@ def main(args=None, config_file: Path = None):
     if args is None:
         args = sys.argv[1:]
 
+    # print the args
+    write_log_entry(__file__, f'arguments : {args}')
+
     for i in range(len(args)):
         if args[i] == '--interval-type':
             intervaltype = args[i+1]
@@ -121,7 +124,7 @@ def main(args=None, config_file: Path = None):
 
         # set targeted headers
         headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
-                               'Recette', 'Taux de remboursement', 'Compte', 'Economie', 'Réglé', 'Catégorie', 'excluded']
+                               'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'Economie', 'Réglé', 'Mois', 'excluded']
 
         if len(df_list) > 0:
             write_log_entry(__file__, 'adding extra columns')
@@ -142,3 +145,4 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'{len(global_df)} rows stored')
         else:
             write_log_entry(__file__, '0 rows to import')
+
