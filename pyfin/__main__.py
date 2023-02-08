@@ -20,7 +20,8 @@ def get_help() -> str:
              "--interval-type [day|week|month] : sets the interval of data, default : week" \
              "--interval-count [number] : sets the number of intervals, default : 1" \
              "--set-credentials [path] : configures the credentials for accessing google drive" \
-             "--list-mappings : list the currently configured mappings"
+             "--list-mappings : list the currently configured mappings" \
+             "--start-index : set the starting index"
 
     return result
 
@@ -34,6 +35,7 @@ def main(args=None, config_file: Path = None):
     credentials = ''
     archive = True
     list_mappings = False
+    start_index = 0
 
     # retrieving the args
     if args is None:
@@ -51,6 +53,8 @@ def main(args=None, config_file: Path = None):
             credentials = args[i+1]
         if args[i] == '--list-mappings':
             list_mappings = True
+        if args[i] == '--start-index':
+            start_index = int(args[i+1])
 
     # set the options
     archive = not ("-no-archive" in args)
@@ -77,6 +81,7 @@ def main(args=None, config_file: Path = None):
         for m in mps:
             print(m)
     else:
+
         # initialize data frame list
         df_list = []
         # extracting the Crédit Agricole
@@ -135,6 +140,12 @@ def main(args=None, config_file: Path = None):
 
             write_log_entry(__file__, f'filtering by date')
             global_df = c.filter_by_date(global_df, intervaltype, intervalcount)
+
+            write_log_entry(__file__, f'parsing the check number')
+            global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
+
+            write_log_entry(__file__, f'setting the index ')
+            global_df['Index'] = range(start_index, start_index + len(global_df))
 
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {appconfig.mapping_file}')
             global_df = c.map_categories(global_df, appconfig.mapping_file)

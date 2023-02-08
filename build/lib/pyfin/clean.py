@@ -2,7 +2,17 @@ import pandas as pd
 import datetime as dt
 from pyfin.configmanager import CategoryMapper
 from pathlib import Path
+import re
 
+def extract_numero_cheque(libelle: str) -> str:
+    extract = re.findall('[0-9]{7}', libelle)
+    if re.match('Cheque Emis', libelle) and len(extract) > 0:
+        return extract[0]
+    else:
+        return ''
+
+def parse_numero_cheque(ds: pd.Series) -> pd.Series:
+    return ds.apply(extract_numero_cheque)
 
 def add_extra_columns(df_list: list) -> list:
     df: pd.DataFrame
@@ -12,7 +22,6 @@ def add_extra_columns(df_list: list) -> list:
         df['Réglé'] = ''
 
     return df_list
-
 
 def concat_frames(frame_list: list, headers: list) -> pd.DataFrame:
     harmonized_frames = [f[headers] for f in frame_list]
