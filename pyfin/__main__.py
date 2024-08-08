@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import datetime as dt
 import pyfin.extract_ca as eca
 import pyfin.extract_cash as ecs
 import pyfin.extract_ba as ecb
@@ -21,10 +22,11 @@ def get_help() -> str:
              "--interval-count [number] : sets the number of intervals, default : 1" \
              "--set-credentials [path] : configures the credentials for accessing google drive" \
              "--list-mappings : list the currently configured mappings" \
-             "--start-index : set the starting index"
+             "--start-index : set the starting index" \
+             "--no-archive : do not archive the input files"
+
 
     return result
-
 
 def main(args=None, config_file: Path = None):
     """ main function to run the tool"""
@@ -55,9 +57,12 @@ def main(args=None, config_file: Path = None):
             list_mappings = True
         if args[i] == '--start-index':
             start_index = int(args[i+1])
+        if args[i] == '--help':
+            print(get_help())
+            return
 
     # set the options
-    archive = not ("-no-archive" in args)
+    archive = not ("--no-archive" in args)
 
     # load config
     appconfig = AppConfiguration(config_file)
@@ -78,15 +83,16 @@ def main(args=None, config_file: Path = None):
         catmap.load_csv(Path.home().joinpath(appconfig.mapping_file))
         write_log_entry(__file__, f'list of mappings from file {appconfig.mapping_file}')
         mps = catmap.get_mappins()
-        for m in mps:
-            print(m)
     else:
+        # list the start and end dates
+        start_date, end_date = c.get_interval(interval_type=intervaltype, interval_count=intervalcount)
+        write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
 
         # initialize data frame list
         df_list = []
         # extracting the Crédit Agricole
         write_log_section('Extract Crédit Agricole')
-        df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, appconfig.to_archive)
+        df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, archive=archive)
 
         if df_ca is None:
             write_log_entry(__file__, 'no extract found')
@@ -115,7 +121,7 @@ def main(args=None, config_file: Path = None):
 
         # extracting Boursorama
         write_log_section('Extract Boursorama')
-        df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, appconfig.to_archive)
+        df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, archive=archive)
         if df_ba is None:
             write_log_entry(__file__, 'no extract found')
         else:
@@ -139,21 +145,30 @@ def main(args=None, config_file: Path = None):
             global_df = c.concat_frames(df_list, headers)
 
             write_log_entry(__file__, f'filtering by date')
-            global_df = c.filter_by_date(global_df, intervaltype, intervalcount)
+            global_df = c.filter_by_date(global_df, start_date, end_date)
 
             write_log_entry(__file__, f'parsing the check number')
             global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
 
-            write_log_entry(__file__, f'setting the index ')
-            global_df['Index'] = range(start_index, start_index + len(global_df))
+            write_log_entry(__file__, f'setting the index at {start_index}')
+            global_df = c.set_index('Index', start_index, global_df)
+
+            write_log_entry(__file__, f'removing the zeroes')
+            global_df = c.remove_zeroes('Dépense', global_df)
+            global_df = c.remove_zeroes('Recette', global_df)
 
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {appconfig.mapping_file}')
             global_df = c.map_categories(global_df, appconfig.mapping_file)
 
+            write_log_entry(__file__, f'adding the current date as insertion date')
+            global_df = c.add_insertdate(global_df, dt.date.today())
             s.store_frame(global_df, ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'])
 
             # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
             write_log_entry(__file__, f'{len(global_df)} rows stored')
+            print(global_df)
         else:
             write_log_entry(__file__, '0 rows to import')
 
+if __name__ == '__main__':
+    main()

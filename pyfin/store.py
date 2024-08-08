@@ -4,9 +4,9 @@ import pyfin.odfpandas as op
 
 def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_excluded: list):
     # save the correct rows
-    df[df['excluded'] == False].to_csv(pathlib.Path.home().joinpath(*target_folder_file))
+    df[df['excluded'] == False].drop('excluded', axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_file))
     # save the excluded rows somewhere else
-    df[df['excluded'] == True].to_csv(pathlib.Path.home().joinpath(*target_folder_excluded))
+    df[df['excluded'] == True].drop('excluded', axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_excluded))
 
 
 def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str):

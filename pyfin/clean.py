@@ -4,6 +4,21 @@ from pyfin.configmanager import CategoryMapper
 from pathlib import Path
 import re
 
+
+def get_interval(interval_type: str, interval_count: int):
+    """ calculating the interval"""
+    end_date = dt.date.today()
+    start_date = dt.date.today()
+
+    if interval_type == 'week':
+        start_date = end_date - dt.timedelta(days=(end_date.isoweekday() - 1) +
+                                               7*(interval_count-1))
+    elif interval_type == 'day':
+        start_date = end_date - dt.timedelta(days=interval_count)
+
+    return start_date, end_date
+
+
 def extract_numero_cheque(libelle: str) -> str:
     extract = re.findall('[0-9]{7}', libelle)
     if re.match('Cheque Emis', libelle) and len(extract) > 0:
@@ -28,19 +43,28 @@ def concat_frames(frame_list: list, headers: list) -> pd.DataFrame:
     result = pd.concat(harmonized_frames)
     return result
 
+def set_index(index_name: str, start_index:int, df: pd.DataFrame) -> pd.DataFrame:
+    """ Ajoute un index au dataframe"""
+    df['Index'] = range(start_index, start_index+len(df))
+    return df
 
-def filter_by_date(df: pd.DataFrame, interval_type: str, interval_count: int) -> pd.DataFrame:
-    first_date = dt.date.today()
-    if interval_type == 'week':
-        first_date = first_date - dt.timedelta(days=(first_date.isoweekday() - 1) +
-                                               7*(interval_count-1))
+def remove_zeroes(column_name: str, df: pd.DataFrame) -> pd.DataFrame:
+    """ Enlève les zéros de la colonne"""
+    df[column_name].replace(0, None, inplace=True)
+    return df
 
+def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
     # filter
-    df = df[df['Date'] >= first_date]
+    df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # end
     return df
 
+def add_insertdate(df: pd.DataFrame, insertdate: dt.date) -> pd.DataFrame:
+    # set the current date
+    df['InsertDate'] = insertdate
+    # end
+    return df
 
 def map_categories(df: pd.DataFrame, csv_file: str) -> pd.DataFrame:
     catmap = CategoryMapper()
@@ -50,7 +74,6 @@ def map_categories(df: pd.DataFrame, csv_file: str) -> pd.DataFrame:
     for m in maps:
         label = m[0]
         categorie = m[1]
-        print(f'mapping label : {label} to catégorie: {categorie}')
         df.loc[df['Description'].str.contains(label), 'Catégorie'] = categorie
 
     return df
