@@ -60,6 +60,11 @@ def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> 
     # end
     return df
 
+def add_insertdate(df: pd.DataFrame, insertdate: dt.date) -> pd.DataFrame:
+    # set the current date
+    df['InsertDate'] = insertdate
+    # end
+    return df
 
 def map_categories(df: pd.DataFrame, csv_file: str) -> pd.DataFrame:
     catmap = CategoryMapper()

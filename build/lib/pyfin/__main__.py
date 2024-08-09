@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import datetime as dt
 import pyfin.extract_ca as eca
 import pyfin.extract_cash as ecs
 import pyfin.extract_ba as ecb
@@ -159,6 +160,8 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {appconfig.mapping_file}')
             global_df = c.map_categories(global_df, appconfig.mapping_file)
 
+            write_log_entry(__file__, f'adding the current date as insertion date')
+            global_df = c.add_insertdate(global_df, dt.date.today())
             s.store_frame(global_df, ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'])
 
             # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')

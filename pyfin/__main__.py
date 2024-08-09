@@ -6,11 +6,13 @@ import pyfin.extract_cash as ecs
 import pyfin.extract_ba as ecb
 import pyfin.clean as c
 import pyfin.store as s
+import pyfin.indexfinder
 from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
 
 from pyfin.configmanager import AppConfiguration
 from pyfin.configmanager import CategoryMapper
+
 
 def get_help() -> str:
     result = "Relevé Extractor (c). Following parameters are possible : \n" \
@@ -22,11 +24,10 @@ def get_help() -> str:
              "--interval-count [number] : sets the number of intervals, default : 1" \
              "--set-credentials [path] : configures the credentials for accessing google drive" \
              "--list-mappings : list the currently configured mappings" \
-             "--start-index : set the starting index" \
-             "--no-archive : do not archive the input files"
-
-
+             "--no-archive : do not archive the input files" \
+             "--get-index: gets the latest index"
     return result
+
 
 def main(args=None, config_file: Path = None):
     """ main function to run the tool"""
@@ -35,9 +36,8 @@ def main(args=None, config_file: Path = None):
     intervaltype = 'week'
     intervalcount = 1
     credentials = ''
-    archive = True
     list_mappings = False
-    start_index = 0
+    get_index = False
 
     # retrieving the args
     if args is None:
@@ -55,8 +55,8 @@ def main(args=None, config_file: Path = None):
             credentials = args[i+1]
         if args[i] == '--list-mappings':
             list_mappings = True
-        if args[i] == '--start-index':
-            start_index = int(args[i+1])
+        if args[i] == '--get-index':
+            get_index = True
         if args[i] == '--help':
             print(get_help())
             return
@@ -83,10 +83,26 @@ def main(args=None, config_file: Path = None):
         catmap.load_csv(Path.home().joinpath(appconfig.mapping_file))
         write_log_entry(__file__, f'list of mappings from file {appconfig.mapping_file}')
         mps = catmap.get_mappins()
+        print(mps)
+    elif get_index:
+        last_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
+        write_log_entry(__file__, f'the last index is : {last_index}')
     else:
         # list the start and end dates
         start_date, end_date = c.get_interval(interval_type=intervaltype, interval_count=intervalcount)
         write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
+
+        # Calculate the last index
+        write_log_section('Retrieving the most recent index')
+        try:
+            start_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
+            start_index += 1
+            write_log_entry(__file__, f'Index initialized to {start_index}')
+        except Exception as e:
+            write_log_entry(__file__, f'Could not find a proper index source in folder {appconfig.extract_folder}.'
+                                      f'Error : {e}'
+                                      f'Defaulting to 0 instead')
+            start_index = 0
 
         # initialize data frame list
         df_list = []
@@ -135,7 +151,7 @@ def main(args=None, config_file: Path = None):
 
         # set targeted headers
         headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
-                               'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'Economie', 'Réglé', 'Mois', 'excluded']
+                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'Economie', 'Réglé', 'Mois', 'excluded']
 
         if len(df_list) > 0:
             write_log_entry(__file__, 'adding extra columns')
@@ -162,13 +178,15 @@ def main(args=None, config_file: Path = None):
 
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
-            s.store_frame(global_df, ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'])
+            s.store_frame(global_df,
+                          ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
             # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
             write_log_entry(__file__, f'{len(global_df)} rows stored')
             print(global_df)
         else:
             write_log_entry(__file__, '0 rows to import')
+
 
 if __name__ == '__main__':
     main()

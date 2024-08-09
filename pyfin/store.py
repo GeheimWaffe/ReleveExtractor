@@ -2,12 +2,13 @@ import pandas as pd
 import pathlib
 import pyfin.odfpandas as op
 
-def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_excluded: list):
+def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_excluded: list, target_folder_anterior: list):
     # save the correct rows
-    df[df['excluded'] == False].drop('excluded', axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_file))
+    df.loc[(df['excluded'] == False) & (df['DateFilter'] == 'Current')].drop(['excluded', 'DateFilter'], axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_file))
     # save the excluded rows somewhere else
-    df[df['excluded'] == True].drop('excluded', axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_excluded))
-
+    df.loc[(df['excluded'] == True) & (df['DateFilter'] == 'Current')].drop(['excluded', 'DateFilter'], axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_excluded))
+    # save the anterior rows
+    df.loc[df['DateFilter'] == 'Previous'].drop(['excluded', 'DateFilter'], axis=1).to_csv(pathlib.Path.home().joinpath(*target_folder_anterior))
 
 def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str):
     # reconvert the date column to date time

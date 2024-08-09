@@ -55,7 +55,8 @@ def remove_zeroes(column_name: str, df: pd.DataFrame) -> pd.DataFrame:
 
 def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
     # filter
-    df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+    df['DateFilter'] = 'Previous'
+    df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date), 'DateFilter'] = 'Current'
 
     # end
     return df

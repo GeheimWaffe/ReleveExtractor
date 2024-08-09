@@ -120,6 +120,14 @@ class SheetWrapper:
     def name(self) -> str:
         return self.__sheet__.getAttribute('name')
 
+    def get_row_count(self) -> int:
+        """ Returns the total number of rows in the sheet"""
+        return len(self.__sheet__.getElementsByType(TableRow))
+
+    def get_cell(self, row_index: int, col_index: int) -> Element:
+        """ Access a specific cell
+        :returns: """
+
     def get_row(self, index: int) -> Element:
         return self.__sheet__.getElementsByType(TableRow)[index]
 
