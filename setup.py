@@ -2,10 +2,10 @@ from setuptools import setup
 
 setup(
     name='pyfin',
-    version='1.2.7',
+    version='1.2.9',
     packages=['pyfin'],
     entry_points = {'console_scripts': ['pyfin_launch=pyfin.__main__:main']},
-    install_requires=['openpyxl', 'pandas', 'pygsheets', 'odfpy', 'SQLAlchemy'],
+    install_requires=['openpyxl', 'pandas', 'pygsheets', 'odfpy'],
     url='www.pyfin.org',
     license='GNU',
     author='vincent scherrer',

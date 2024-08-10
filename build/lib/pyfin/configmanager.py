@@ -30,6 +30,9 @@ class AppConfiguration:
         self.__cp__.add_section('MAPPINGS')
         self.__cp__['MAPPINGS']['MappingFile'] = 'pyfin_loader_category_mappings.csv'
 
+        self.__cp__.add_section('EXTRACTS')
+        self.__cp__['EXTRACTS']['ExtractFolder'] = '/home/vincent/Extracts'
+
         # now loading the existing config if any
         if config_file is None:
             cf = self.get_filepath()
@@ -74,6 +77,9 @@ class AppConfiguration:
     @property
     def mapping_file(self) -> str:
         return self.__cp__.get('MAPPINGS', 'MappingFile')
+    @property
+    def extract_folder(self) -> str:
+        return self.__cp__.get('EXTRACTS', 'ExtractFolder')
 
 class CategoryMapper:
     """ class used for mapping categories """

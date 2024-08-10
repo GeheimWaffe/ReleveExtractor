@@ -88,12 +88,8 @@ def main(args=None, config_file: Path = None):
         last_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
         write_log_entry(__file__, f'the last index is : {last_index}')
     else:
-        # list the start and end dates
-        start_date, end_date = c.get_interval(interval_type=intervaltype, interval_count=intervalcount)
-        write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
-
         # Calculate the last index
-        write_log_section('Retrieving the most recent index')
+        write_log_section('Connecting to the previous exports')
         try:
             start_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
             start_index += 1
@@ -103,6 +99,20 @@ def main(args=None, config_file: Path = None):
                                       f'Error : {e}'
                                       f'Defaulting to 0 instead')
             start_index = 0
+
+        # Calculate the last date
+        start_date, end_date = c.get_interval(interval_type=intervaltype, interval_count=intervalcount)
+        try:
+            lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
+            start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
+            start_date += dt.timedelta(days=1)
+            write_log_entry(__file__, f'Start date initialized to {start_date}')
+        except Exception as e:
+            write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
+                                    f'Error : {e}'
+                                    f'reverting to standard start and end date instead')
+
+        write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
 
         # initialize data frame list
         df_list = []
