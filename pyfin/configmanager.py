@@ -1,6 +1,7 @@
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 from pathlib import Path
 import csv
+
 
 class AppConfiguration:
     __config_file_name__ = 'pyfin.conf'
@@ -13,7 +14,7 @@ class AppConfiguration:
         then match with an existing config file ; and then save
 
         :param config_file: if a custom config file is a provided as a Path"""
-        self.__cp__ = SafeConfigParser()
+        self.__cp__ = ConfigParser()
 
         # configuring the default config file
         self.__cp__.add_section('CREDENTIALS')
@@ -33,6 +34,9 @@ class AppConfiguration:
         self.__cp__.add_section('EXTRACTS')
         self.__cp__['EXTRACTS']['ExtractFolder'] = '/home/vincent/Extracts'
 
+        self.__cp__.add_section('EXCLUSIONS')
+        self.__cp__['EXCLUSIONS']['keywords'] = 'REMBOURSEMENT DE PRET, ASSU. CNP PRET HABITAT, RETRAIT AU DISTRIBUTEUR'
+
         # now loading the existing config if any
         if config_file is None:
             cf = self.get_filepath()
@@ -40,14 +44,14 @@ class AppConfiguration:
             cf = config_file
 
         if cf.exists():
-            existing_cp = SafeConfigParser()
+            existing_cp = ConfigParser()
             existing_cp.read(cf)
             for s in existing_cp.sections():
                 for o in existing_cp.options(s):
                     self.__cp__[s][o] = existing_cp.get(s, o)
 
         # and then we dump the new and updated config file
-        with open(self.get_filepath(), 'w') as target:
+        with open(cf, 'w') as target:
             self.__cp__.write(target)
 
     @property
@@ -77,9 +81,16 @@ class AppConfiguration:
     @property
     def mapping_file(self) -> str:
         return self.__cp__.get('MAPPINGS', 'MappingFile')
+
     @property
     def extract_folder(self) -> str:
         return self.__cp__.get('EXTRACTS', 'ExtractFolder')
+
+    @property
+    def excluded_keywords(self) -> list:
+        strlist = self.__cp__.get('EXCLUSIONS', 'keywords')
+        list = [c.strip() for c in strlist.split(',')]
+        return list
 
 class CategoryMapper:
     """ class used for mapping categories """

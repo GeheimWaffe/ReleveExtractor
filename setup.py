@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='pyfin',
-    version='1.2.9',
+    version='1.3.1',
     packages=['pyfin'],
     entry_points = {'console_scripts': ['pyfin_launch=pyfin.__main__:main']},
     install_requires=['openpyxl', 'pandas', 'pygsheets', 'odfpy'],

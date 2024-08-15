@@ -1,15 +1,16 @@
 import sys
 from pathlib import Path
+
+import pandas as pd
+
+from pyfin.coremodel import Extractor
 import datetime as dt
-import pyfin.extract_ca as eca
-import pyfin.extract_cash as ecs
-import pyfin.extract_ba as ecb
-import pyfin.clean as c
+import pyfin.extractors as extractors
+import pyfin.coremodel as c
 import pyfin.store as s
 import pyfin.indexfinder
 from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
-
 from pyfin.configmanager import AppConfiguration
 from pyfin.configmanager import CategoryMapper
 
@@ -48,11 +49,11 @@ def main(args=None, config_file: Path = None):
 
     for i in range(len(args)):
         if args[i] == '--interval-type':
-            intervaltype = args[i+1]
+            intervaltype = args[i + 1]
         if args[i] == '--interval-count':
-            intervalcount = int(args[i+1])
+            intervalcount = int(args[i + 1])
         if args[i] == '--set-credentials':
-            credentials = args[i+1]
+            credentials = args[i + 1]
         if args[i] == '--list-mappings':
             list_mappings = True
         if args[i] == '--get-index':
@@ -67,12 +68,20 @@ def main(args=None, config_file: Path = None):
     # load config
     appconfig = AppConfiguration(config_file)
 
+    # load category mappings
+    catmap = CategoryMapper()
+    write_log_entry(__file__, 'loading the category mappings')
+    catmap.load_csv(Path(appconfig.mapping_file))
+    write_log_entry(__file__, f'category mappings loaded : {len(catmap.get_mappins())} found')
+
+    # set the exclusion list
+    exclusion_list = appconfig.excluded_keywords
+
     # fix the credentials
     if credentials != '':
         appconfig.service_account_key = credentials
 
     write_log_section('Defining the parameters')
-
     write_log_entry(__file__, f'archive the data : {archive}')
     write_log_entry(__file__, f' interval type : {intervaltype}')
     write_log_entry(__file__, f' interval count : {intervalcount}')
@@ -85,93 +94,90 @@ def main(args=None, config_file: Path = None):
         mps = catmap.get_mappins()
         print(mps)
     elif get_index:
-        last_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
+        lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
+        last_index = pyfin.indexfinder.get_index_from_file(lastcompte)
         write_log_entry(__file__, f'the last index is : {last_index}')
     else:
-        # Calculate the last index
+        # Calculate the last index and start, end dates
         write_log_section('Connecting to the previous exports')
-        try:
-            start_index = pyfin.indexfinder.get_index_from_folder(Path(appconfig.extract_folder))
-            start_index += 1
-            write_log_entry(__file__, f'Index initialized to {start_index}')
-        except Exception as e:
-            write_log_entry(__file__, f'Could not find a proper index source in folder {appconfig.extract_folder}.'
-                                      f'Error : {e}'
-                                      f'Defaulting to 0 instead')
-            start_index = 0
-
-        # Calculate the last date
+        lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
+        # Initialize the values
         start_date, end_date = c.get_interval(interval_type=intervaltype, interval_count=intervalcount)
-        try:
-            lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
-            start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
-            start_date += dt.timedelta(days=1)
-            write_log_entry(__file__, f'Start date initialized to {start_date}')
-        except Exception as e:
-            write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
-                                    f'Error : {e}'
-                                    f'reverting to standard start and end date instead')
+        start_index = 0
+        write_log_entry(__file__, f'start and and date initialized to : {start_date}-{end_date}')
+        if lastcompte is None:
+            write_log_entry(__file__, f'could not find a proper file in {appconfig.extract_folder}')
+        else:
+            try:
+                start_index = pyfin.indexfinder.get_index_from_file(lastcompte)
+                start_index += 1
+                write_log_entry(__file__, f'Index initialized to {start_index}')
+            except Exception as e:
+                write_log_entry(__file__, f'Could not find a proper index source in the file  {lastcompte.name}.'
+                                          f'Error : {e}'
+                                          f'Defaulting to 0 instead')
+                start_index = 0
+            try:
+                start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
+                start_date += dt.timedelta(days=1)
+                write_log_entry(__file__, f'Start date adjusted to {start_date}')
+            except Exception as e:
+                write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
+                                          f'Error : {e}'
+                                          f'reverting to standard start and end date instead')
 
         write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
 
-        # initialize data frame list
+        # getting the extractors
+        ex = extractors.get_extractors(appconfig.download_folder, appconfig.ca_subfolder,
+                                       authentification_key=appconfig.service_account_key)
+
+        # set expected columns
+        headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
+                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie',
+                   'excluded']
+
+        e: Extractor
+        df: pd.DataFrame
         df_list = []
-        # extracting the Crédit Agricole
-        write_log_section('Extract Crédit Agricole')
-        df_ca = eca.extract_releve_ca(appconfig.download_folder, appconfig.ca_subfolder, archive=archive)
+        # 1st step : iterate over the extractors
+        write_log_section('Extract')
+        for e in ex:
+            write_log_section(f'Extractor : {e.name}')
+            df = e.get_data()
+            if df is None:
+                write_log_entry(__file__, 'no extract found')
+            else:
+                write_log_entry(__file__, f'extract found, {len(df)} rows in it')
+            # validate the content
+            try:
+                df = df[headers]
+            except KeyError:
+                raise KeyError(f'all the columns could not be found in the dataframe extracted by {e.name}')
+            # all good, we add the data
+            df_list += [df]
 
-        if df_ca is None:
-            write_log_entry(__file__, 'no extract found')
-        else:
-            write_log_entry(__file__, 'extract found')
-
-            exclusion_list = ['REMBOURSEMENT DE PRET', 'ASSU. CNP PRET HABITAT', 'RETRAIT AU DISTRIBUTEUR']
-
-            df_ca = eca.clean_releve_ca(df_ca, exclusion_list)
-            write_log_entry(__file__, f'extract cleaned up, {len(df_ca)} rows found')
-            df_list.append(df_ca)
-
-        # extracting the cash
-        write_log_section('Extract Liquide Vincent')
-        if appconfig.service_account_key == '':
-            write_log_entry(__name__, 'Warning : no authentication key found for logging to Google')
-        df_cash = ecs.extract_cash_info(appconfig.service_account_key)
-        if df_cash is None:
-            write_log_entry(__file__, 'no extract found')
-        else:
-            write_log_entry(__file__, 'extract found')
-            df_cash = ecs.clean_cash_info(df_cash)
-            write_log_entry(__file__, f'extract cleaned up, {len(df_cash)} rows found')
-
-            df_list.append(df_cash)
-
-        # extracting Boursorama
-        write_log_section('Extract Boursorama')
-        df_ba = ecb.extract_releve_ba(appconfig.download_folder, appconfig.ba_subfolder, archive=archive)
-        if df_ba is None:
-            write_log_entry(__file__, 'no extract found')
-        else:
-            write_log_entry(__file__, 'extract found')
-            df_ba = ecb.clean_releve_ba(df_ba)
-            write_log_entry(__file__, f'extract cleaned up, {len(df_ba)} rows found')
-            df_list.append(df_ba)
-
+        write_log_entry(__file__, f'{len(df_list)} dataframes loaded from the extractors')
+        # 2nd step : merge and clean
         # merge
         write_log_section('Merge & Store')
 
-        # set targeted headers
-        headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
-                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie', 'Economie', 'Réglé', 'Mois', 'excluded']
-
         if len(df_list) > 0:
-            write_log_entry(__file__, 'adding extra columns')
-            df_list = c.add_extra_columns(df_list)
-
             write_log_entry(__file__, f'concatenating {len(df_list)} frames')
             global_df = c.concat_frames(df_list, headers)
 
+            write_log_entry(__file__, 'adding extra columns')
+            global_df = c.add_extra_columns(global_df)
+
             write_log_entry(__file__, f'filtering by date')
             global_df = c.filter_by_date(global_df, start_date, end_date)
+
+            write_log_entry(__file__, f'setting excluded records')
+            global_df = c.set_exclusion(global_df, exclusion_list)
+            write_log_entry(__file__, f'records excluded : {len(global_df[global_df["excluded"] == True])} records')
+
+            write_log_entry(__file__, f'formatting the Description')
+            global_df['Description'] = c.format_description(global_df['Description'])
 
             write_log_entry(__file__, f'parsing the check number')
             global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
@@ -184,16 +190,21 @@ def main(args=None, config_file: Path = None):
             global_df = c.remove_zeroes('Recette', global_df)
 
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {appconfig.mapping_file}')
-            global_df = c.map_categories(global_df, appconfig.mapping_file)
+            global_df = c.map_categories(global_df, catmap.get_mappins())
 
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
+
             s.store_frame(global_df,
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
             # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
             write_log_entry(__file__, f'{len(global_df)} rows stored')
-            print(global_df)
+            # analysis
+            write_log_entry(__file__, f'columns :')
+            print(global_df.columns)
+            write_log_entry(__file__, f'counts by date status')
+            print(global_df.groupby('DateFilter')['Index'].count())
         else:
             write_log_entry(__file__, '0 rows to import')
 

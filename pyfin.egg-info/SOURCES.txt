@@ -2,11 +2,9 @@ README.md
 setup.py
 pyfin/__init__.py
 pyfin/__main__.py
-pyfin/clean.py
 pyfin/configmanager.py
-pyfin/extract_ba.py
-pyfin/extract_ca.py
-pyfin/extract_cash.py
+pyfin/coremodel.py
+pyfin/extractors.py
 pyfin/indexfinder.py
 pyfin/logger.py
 pyfin/odfpandas.py

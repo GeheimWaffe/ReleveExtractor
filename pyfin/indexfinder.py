@@ -8,7 +8,8 @@ from pathlib import Path
 import pandas as pd
 import datetime as dt
 
-def get_latest_file(folder: Path)->Path:
+
+def get_latest_file(folder: Path) -> Path:
     files = [f for f in folder.iterdir() if f.is_file()]
     files.sort(reverse=True, key=lambda file: file.name)
     try:
@@ -16,9 +17,10 @@ def get_latest_file(folder: Path)->Path:
     except Exception:
         raise KeyError(f'could not find a file in folder {folder}')
 
-def get_index_from_file(comptes_csv: Path)->int:
+
+def get_index_from_file(comptes_csv: Path) -> int:
     # load the csv file
-    df  = pd.read_csv(comptes_csv)
+    df = pd.read_csv(comptes_csv)
     # search the index column
     try:
         s = df['N°']
@@ -27,7 +29,8 @@ def get_index_from_file(comptes_csv: Path)->int:
 
     return int(s.max())
 
-def get_lastdate_from_file(comptes_csv: Path)->dt.date:
+
+def get_lastdate_from_file(comptes_csv: Path) -> dt.date:
     # load the csv file
     df = pd.read_csv(comptes_csv)
     # search the date column
@@ -40,8 +43,3 @@ def get_lastdate_from_file(comptes_csv: Path)->dt.date:
     s = pd.to_datetime(s).dt.date
     s = s.fillna(dt.date(2000, 1, 1))
     return s.max()
-
-def get_index_from_folder(folder: Path)->int:
-    f = get_latest_file(folder)
-    index = get_index_from_file(f)
-    return index

@@ -1,1 +1,3 @@
 /app.conf
+/tests/integration_tests/fixtures/pyfin.conf
+/tests/integration_tests/fixtures/cat_mappings.csv

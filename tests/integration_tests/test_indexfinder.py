@@ -6,7 +6,7 @@ from pathlib import Path
 
 class Test(TestCase):
     def test_get_latest_file(self):
-        latest_file = get_latest_file(Path('.'))
+        latest_file = get_latest_file(Path('..'))
         self.assertIsNotNone(latest_file, 'Could not find a valid file')
 
     def test_get_lastdate_from_file(self):
