@@ -38,6 +38,14 @@ def generate_table_cell_float(content: float, stylename: str = '', rule: str = '
     result.addElement(P(text=str(content)))
     return result
 
+def generate_table_cell_integer(content: int, stylename: str = '', rule: str = '') -> Element:
+    result = TableCell(valuetype='float', value=str(content))
+    if stylename != '':
+        result.setAttribute('stylename', stylename)
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
+    result.addElement(P(text=str(content)))
+    return result
 
 def generate_table_cell_datetime(content: dt.datetime, stylename: str = '', rule: str = '') -> Element:
     result = TableCell(valuetype='date', datevalue=content.strftime('%Y-%m-%dT%H:%M:%S'))
@@ -141,6 +149,8 @@ class SheetWrapper:
             for value in value_row:
                 if isinstance(value, float):
                     row.addElement(generate_table_cell_float(value))
+                elif isinstance(value, int):
+                    row.addElement(generate_table_cell_integer(value))
                 else:
                     row.addElement(generate_table_cell_text(str(value)))
             # add the row to the table
@@ -185,6 +195,8 @@ class SheetWrapper:
                 rule = empty_row.get_cell_validation(i)
                 if df.dtypes[i] == 'float64':
                     row.addElement(generate_table_cell_float(df_row[i], style, rule))
+                elif df.dtypes[i] == 'int64':
+                    row.addElement(generate_table_cell_integer(df_row[i], style, rule))
                 elif df.dtypes[i] == r'datetime64[ns]':
                     row.addElement(generate_table_cell_datetime(df_row[i], style, rule))
                 else:

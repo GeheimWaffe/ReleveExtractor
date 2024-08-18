@@ -89,8 +89,8 @@ class AppConfiguration:
     @property
     def excluded_keywords(self) -> list:
         strlist = self.__cp__.get('EXCLUSIONS', 'keywords')
-        list = [c.strip() for c in strlist.split(',')]
-        return list
+        result = [c.strip() for c in strlist.split(',')]
+        return result
 
 class CategoryMapper:
     """ class used for mapping categories """

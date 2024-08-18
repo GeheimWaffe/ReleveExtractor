@@ -12,7 +12,8 @@ def store_frame(df: pd.DataFrame, target_folder_file: list, target_folder_exclud
 
 def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str):
     # reconvert the date column to date time
-    df['Date'] = pd.to_datetime(df['Date'])
+    for column in  ['Date', 'Mois', 'InsertDate']:
+        df[column] = pd.to_datetime(df[column])
 
     odsfile = pathlib.Path.home().joinpath(*comptes_path)
     wb = op.SpreadsheetWrapper()
@@ -22,4 +23,4 @@ def store_frame_to_ods(df: pd.DataFrame, comptes_path: list, comptes_sheet: str)
     ws = wb.get_sheets().get(comptes_sheet)
     if not ws is None:
         ws.insert_from_dataframe(df, include_headers=False, mode='append')
-        wb.save(odsfile.parent.joinpath('testcomptes.ods'))
+        wb.save(odsfile)

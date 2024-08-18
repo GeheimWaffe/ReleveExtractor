@@ -198,7 +198,8 @@ def main(args=None, config_file: Path = None):
             s.store_frame(global_df,
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
-            # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
+            s.store_frame_to_ods(global_df, ['Comptes', 'Comptes_2024.ods'], 'Mouvements')
+
             write_log_entry(__file__, f'{len(global_df)} rows stored')
             # analysis
             write_log_entry(__file__, f'columns :')

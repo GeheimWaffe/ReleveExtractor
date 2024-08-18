@@ -75,7 +75,7 @@ def main(args=None, config_file: Path = None):
     write_log_entry(__file__, f'category mappings loaded : {len(catmap.get_mappins())} found')
 
     # set the exclusion list
-    exclusion_list = ['REMBOURSEMENT DE PRET', 'ASSU. CNP PRET HABITAT', 'RETRAIT AU DISTRIBUTEUR']
+    exclusion_list = appconfig.excluded_keywords
 
     # fix the credentials
     if credentials != '':
