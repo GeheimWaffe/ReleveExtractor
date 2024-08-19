@@ -26,7 +26,8 @@ def get_help() -> str:
              "--set-credentials [path] : configures the credentials for accessing google drive" \
              "--list-mappings : list the currently configured mappings" \
              "--no-archive : do not archive the input files" \
-             "--get-index: gets the latest index"
+             "--get-index: gets the latest index" \
+             "--csv-only: exports only to csv"
     return result
 
 
@@ -39,6 +40,7 @@ def main(args=None, config_file: Path = None):
     credentials = ''
     list_mappings = False
     get_index = False
+    csv_only = False
 
     # retrieving the args
     if args is None:
@@ -58,6 +60,8 @@ def main(args=None, config_file: Path = None):
             list_mappings = True
         if args[i] == '--get-index':
             get_index = True
+        if args[i] == '--csv-only':
+            csv_only = True
         if args[i] == '--help':
             print(get_help())
             return
@@ -70,8 +74,8 @@ def main(args=None, config_file: Path = None):
 
     # load category mappings
     catmap = CategoryMapper()
-    write_log_entry(__file__, 'loading the category mappings')
-    catmap.load_csv(Path(appconfig.mapping_file))
+    write_log_entry(__file__, f'loading the category mappings at {appconfig.mapping_file}')
+    catmap.load_csv(Path().home().joinpath(appconfig.mapping_file))
     write_log_entry(__file__, f'category mappings loaded : {len(catmap.get_mappins())} found')
 
     # set the exclusion list
@@ -198,7 +202,9 @@ def main(args=None, config_file: Path = None):
             s.store_frame(global_df,
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
-            # s.store_frame_to_ods(global_df, ['Bureau', 'Comptes_2022.ods'], 'Mouvements')
+            if not csv_only:
+                s.store_frame_to_ods(global_df, ['Comptes', 'Comptes_2024.ods'], 'Mouvements')
+
             write_log_entry(__file__, f'{len(global_df)} rows stored')
             # analysis
             write_log_entry(__file__, f'columns :')
@@ -207,6 +213,12 @@ def main(args=None, config_file: Path = None):
             print(global_df.groupby('DateFilter')['Index'].count())
         else:
             write_log_entry(__file__, '0 rows to import')
+
+        # archiving
+        if archive:
+            for e in ex:
+                e.flush()
+                write_log_entry(__file__, f'archiving the content of extractor {e.name}')
 
 
 if __name__ == '__main__':

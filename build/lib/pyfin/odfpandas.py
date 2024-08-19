@@ -9,7 +9,6 @@ from pathlib import Path
 import datetime as dt
 import pandas as pd
 
-
 def generate_cell_empty(stylename: str = '', rule: str = '') -> Element:
     result = TableCell()
     if stylename != '':
@@ -38,6 +37,14 @@ def generate_table_cell_float(content: float, stylename: str = '', rule: str = '
     result.addElement(P(text=str(content)))
     return result
 
+def generate_table_cell_integer(content: int, stylename: str = '', rule: str = '') -> Element:
+    result = TableCell(valuetype='float', value=str(content))
+    if stylename != '':
+        result.setAttribute('stylename', stylename)
+    if rule != '':
+        result.setAttribute('contentvalidationname', rule)
+    result.addElement(P(text=str(content)))
+    return result
 
 def generate_table_cell_datetime(content: dt.datetime, stylename: str = '', rule: str = '') -> Element:
     result = TableCell(valuetype='date', datevalue=content.strftime('%Y-%m-%dT%H:%M:%S'))
@@ -141,6 +148,8 @@ class SheetWrapper:
             for value in value_row:
                 if isinstance(value, float):
                     row.addElement(generate_table_cell_float(value))
+                elif isinstance(value, int):
+                    row.addElement(generate_table_cell_integer(value))
                 else:
                     row.addElement(generate_table_cell_text(str(value)))
             # add the row to the table
@@ -178,23 +187,27 @@ class SheetWrapper:
             self.__sheet__.insertBefore(row, empty_row)
 
         # import the values
-        for df_row in df.itertuples(index=False):
+        for i in range(len(df)):
             row = TableRow()
-            for i in range(len(df.columns)):
-                style = empty_row.get_cell_style(i)
-                rule = empty_row.get_cell_validation(i)
-                if df.dtypes[i] == 'float64':
-                    row.addElement(generate_table_cell_float(df_row[i], style, rule))
-                elif df.dtypes[i] == r'datetime64[ns]':
-                    row.addElement(generate_table_cell_datetime(df_row[i], style, rule))
+            for j in range(len(df.columns)):
+                value = df.iloc[i, j]
+                t = df.dtypes[j]
+                style = empty_row.get_cell_style(j)
+                rule = empty_row.get_cell_validation(j)
+                if t == 'float64':
+                    row.addElement(generate_table_cell_float(value, style, rule))
+                elif t == 'int64':
+                    row.addElement(generate_table_cell_integer(value, style, rule))
+                elif t == r'datetime64[ns]':
+                    row.addElement(generate_table_cell_datetime(value, style, rule))
                 else:
-                    row.addElement(generate_table_cell_text(df_row[i], style, rule))
+                    row.addElement(generate_table_cell_text(value, style, rule))
 
             # if there are extra styles, create empty cells
             if empty_row.get_cell_count() > len(df.columns):
-                for i in range(len(df.columns), empty_row.get_cell_count()):
-                    row.addElement(generate_cell_empty(empty_row.get_cell_style(i),
-                                                       empty_row.get_cell_validation(i)))
+                for j in range(len(df.columns), empty_row.get_cell_count()):
+                    row.addElement(generate_cell_empty(empty_row.get_cell_style(j),
+                                                       empty_row.get_cell_validation(j)))
 
             # add the row to the table
             self.__sheet__.insertBefore(row, empty_row.element)

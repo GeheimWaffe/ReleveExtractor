@@ -34,8 +34,14 @@ class AppConfiguration:
         self.__cp__.add_section('EXTRACTS')
         self.__cp__['EXTRACTS']['ExtractFolder'] = '/home/vincent/Extracts'
 
+        self.__cp__.add_section('COMPTES')
+        self.__cp__['COMPTES']['ComptesFolder'] = '/home/vincent/Comptes'
+
         self.__cp__.add_section('EXCLUSIONS')
         self.__cp__['EXCLUSIONS']['keywords'] = 'REMBOURSEMENT DE PRET, ASSU. CNP PRET HABITAT, RETRAIT AU DISTRIBUTEUR'
+
+        self.__cp__.add_section('OTHER')
+        self.__cp__['OTHER']['periodization_threshold'] = '150'
 
         # now loading the existing config if any
         if config_file is None:
@@ -87,10 +93,19 @@ class AppConfiguration:
         return self.__cp__.get('EXTRACTS', 'ExtractFolder')
 
     @property
+    def comptes_folder(self) -> str:
+        return self.__cp__.get('COMPTES', 'ComptesFolder')
+
+    @property
     def excluded_keywords(self) -> list:
         strlist = self.__cp__.get('EXCLUSIONS', 'keywords')
         result = [c.strip() for c in strlist.split(',')]
         return result
+
+    @property
+    def periodization_threshold(self) -> float:
+        return float(self.__cp__.get('OTHER', 'periodization_threshold'))
+
 
 class CategoryMapper:
     """ class used for mapping categories """

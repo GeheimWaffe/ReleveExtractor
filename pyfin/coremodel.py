@@ -2,10 +2,14 @@
 import pandas as pd
 import datetime as dt
 import re
+from numpy import round
+
+
 class Extractor:
     """ Abstract base class which implements the required methods"""
+
     @property
-    def name(self)->str:
+    def name(self) -> str:
         return ''
 
     def __init__(self, account_name: str, endpoint: str, archivepoint: str):
@@ -13,13 +17,12 @@ class Extractor:
         self.__endpoint__ = endpoint
         self.__archivepoint__ = archivepoint
 
-    def get_data(self)->pd.DataFrame:
-        return None
+    def get_data(self) -> pd.DataFrame:
+        return pd.DataFrame()
 
-    def flush(self)->bool:
+    def flush(self) -> bool:
         return True
-def validate_schema(self, df: pd.DataFrame):
-    pass
+
 
 def get_interval(interval_type: str, interval_count: int):
     """ calculating the interval"""
@@ -34,9 +37,11 @@ def get_interval(interval_type: str, interval_count: int):
 
     return start_date, end_date
 
-def set_exclusion(df: pd.DataFrame, exclusion_list:[])->pd.DataFrame:
+
+def set_exclusion(df: pd.DataFrame, exclusion_list: []) -> pd.DataFrame:
     df['excluded'] = df['Description'].apply(lambda x: any([e in x for e in exclusion_list]))
     return df
+
 
 def extract_numero_cheque(libelle: str) -> str:
     extract = re.findall('[0-9]{7}', libelle)
@@ -45,11 +50,14 @@ def extract_numero_cheque(libelle: str) -> str:
     else:
         return ''
 
+
 def parse_numero_cheque(ds: pd.Series) -> pd.Series:
     return ds.apply(extract_numero_cheque)
 
+
 def format_description(ds: pd.Series) -> pd.Series:
     return ds.str.title()
+
 
 def add_extra_columns(df: pd.DataFrame) -> pd.DataFrame:
     df['Economie'] = ''
@@ -57,20 +65,24 @@ def add_extra_columns(df: pd.DataFrame) -> pd.DataFrame:
     df['Mois'] = df['Date'] + pd.offsets.MonthEnd(0) - pd.offsets.MonthBegin(1)
     return df
 
+
 def concat_frames(frame_list: list, headers: list) -> pd.DataFrame:
     harmonized_frames = [f[headers] for f in frame_list]
     result = pd.concat(harmonized_frames)
     return result
 
-def set_index(index_name: str, start_index: int, df: pd.DataFrame) -> pd.DataFrame:
+
+def set_index(columnname: str, start_index: int, df: pd.DataFrame) -> pd.DataFrame:
     """ Ajoute un index au dataframe"""
-    df['Index'] = range(start_index, start_index + len(df))
+    df[columnname] = range(start_index, start_index + len(df))
     return df
+
 
 def remove_zeroes(column_name: str, df: pd.DataFrame) -> pd.DataFrame:
     """ Enlève les zéros de la colonne"""
     df[column_name].replace(0, None, inplace=True)
     return df
+
 
 def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
     # filter
@@ -80,11 +92,13 @@ def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> 
     # end
     return df
 
+
 def add_insertdate(df: pd.DataFrame, insertdate: dt.date) -> pd.DataFrame:
     # set the current date
     df['InsertDate'] = insertdate
     # end
     return df
+
 
 def map_categories(df: pd.DataFrame, categories: []) -> pd.DataFrame:
     for m in categories:
@@ -93,3 +107,49 @@ def map_categories(df: pd.DataFrame, categories: []) -> pd.DataFrame:
         df.loc[df['Description'].str.contains(label), 'Catégorie'] = categorie
 
     return df
+
+
+def get_transaction_description(df: pd.DataFrame) -> pd.Series:
+    return df.apply(lambda x: f'Transaction {x.Description} à date du {x.Date.strftime("%d/%m/%Y")}', axis=1)
+
+
+def breakdown_value(value: float, periods) -> []:
+    howmany = int(periods)
+    if howmany > 1:
+        return [round(value / float(howmany), 2)] * (howmany - 1) + [
+            round(value - (float(howmany) - 1) * round(value / float(howmany), 2), 2)]
+    else:
+        return value
+
+
+def breakdown_period(value: dt.date, periods) -> []:
+    howmany = int(periods)
+    if howmany > 1:
+        return [dt.date(value.year, i, 1) for i in range(1, howmany+1)]
+    else:
+        return value
+
+
+def explode_values(df: pd.DataFrame, value_column: str, period_column: str, indexes) -> pd.DataFrame:
+    # set the periodizations
+    percol = 'periodize'
+    df[percol] = 1
+    df.loc[indexes, percol] = 12
+    df[value_column] = df.apply(lambda x: breakdown_value(x[value_column], x[percol]), axis=1)
+    df[period_column] = df.apply(lambda x: breakdown_period(x[period_column], x[percol]), axis=1)
+    df = df.explode([value_column, period_column])
+    df = df.drop(percol, axis=1)
+    return df
+
+
+def split_dataframes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    # save the correct rows
+    current = df.loc[(df['excluded'] == False) & (df['DateFilter'] == 'Current')].drop(['excluded', 'DateFilter'],
+                                                                                       axis=1)
+    # save the excluded rows somewhere else
+    excluded = df.loc[(df['excluded'] == True) & (df['DateFilter'] == 'Current')].drop(['excluded', 'DateFilter'],
+                                                                                       axis=1)
+    # save the anterior rows
+    anterior = df.loc[df['DateFilter'] == 'Previous'].drop(['excluded', 'DateFilter'], axis=1)
+    # end of the function
+    return current, excluded, anterior

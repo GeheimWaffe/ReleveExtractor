@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pyfin.coremodel import Extractor
+from pyfin.coremodel import Extractor, explode_values
 import datetime as dt
 import pyfin.extractors as extractors
 import pyfin.coremodel as c
@@ -26,7 +26,8 @@ def get_help() -> str:
              "--set-credentials [path] : configures the credentials for accessing google drive" \
              "--list-mappings : list the currently configured mappings" \
              "--no-archive : do not archive the input files" \
-             "--get-index: gets the latest index"
+             "--get-index: gets the latest index" \
+             "--csv-only: exports only to csv"
     return result
 
 
@@ -39,6 +40,9 @@ def main(args=None, config_file: Path = None):
     credentials = ''
     list_mappings = False
     get_index = False
+    csv_only = False
+    threshold = 0
+    testmode = False
 
     # retrieving the args
     if args is None:
@@ -58,6 +62,12 @@ def main(args=None, config_file: Path = None):
             list_mappings = True
         if args[i] == '--get-index':
             get_index = True
+        if args[i] == '--csv-only':
+            csv_only = True
+        if args[i] == '--set-threshold':
+            threshold = float(args[i + 1])
+        if args[i] == '--test-mode':
+            testmode = True
         if args[i] == '--help':
             print(get_help())
             return
@@ -70,12 +80,16 @@ def main(args=None, config_file: Path = None):
 
     # load category mappings
     catmap = CategoryMapper()
-    write_log_entry(__file__, 'loading the category mappings')
-    catmap.load_csv(Path(appconfig.mapping_file))
+    write_log_entry(__file__, f'loading the category mappings at {appconfig.mapping_file}')
+    catmap.load_csv(Path().home().joinpath(appconfig.mapping_file))
     write_log_entry(__file__, f'category mappings loaded : {len(catmap.get_mappins())} found')
 
     # set the exclusion list
     exclusion_list = appconfig.excluded_keywords
+
+    # set the threshold
+    if threshold <= 0:
+        threshold = appconfig.periodization_threshold
 
     # fix the credentials
     if credentials != '':
@@ -86,6 +100,7 @@ def main(args=None, config_file: Path = None):
     write_log_entry(__file__, f' interval type : {intervaltype}')
     write_log_entry(__file__, f' interval count : {intervalcount}')
     write_log_entry(__file__, f' google drive location : {appconfig.service_account_key}')
+    write_log_entry(__file__, f'periodization threshold: {appconfig.periodization_threshold}')
 
     if list_mappings:
         catmap = CategoryMapper()
@@ -154,8 +169,12 @@ def main(args=None, config_file: Path = None):
                 df = df[headers]
             except KeyError:
                 raise KeyError(f'all the columns could not be found in the dataframe extracted by {e.name}')
+            except TypeError:
+                # no dataframe found
+                pass
             # all good, we add the data
-            df_list += [df]
+            if not df is None:
+                df_list += [df]
 
         write_log_entry(__file__, f'{len(df_list)} dataframes loaded from the extractors')
         # 2nd step : merge and clean
@@ -182,9 +201,6 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'parsing the check number')
             global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
 
-            write_log_entry(__file__, f'setting the index at {start_index}')
-            global_df = c.set_index('Index', start_index, global_df)
-
             write_log_entry(__file__, f'removing the zeroes')
             global_df = c.remove_zeroes('Dépense', global_df)
             global_df = c.remove_zeroes('Recette', global_df)
@@ -195,12 +211,45 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
 
-            s.store_frame(global_df,
+            # split the dataframe
+            current, excluded, anterior = c.split_dataframes(global_df)
+            write_log_entry(__file__, f'dataframes split, current rows : {len(current)}, '
+                                      f'excluded rows : {len(excluded)}, '
+                                      f'anterior rows : {len(anterior)}')
+
+            # optional : spread some rows over the full year
+            desc = c.get_transaction_description(current)
+            indexes = {'Dépense': [], 'Recette': []}
+            for valuecolumn in indexes.keys():
+                for i in current.index.values:
+                    value = current.loc[i, valuecolumn]
+                    periodize = ''
+                    if value > threshold:
+                        while periodize not in ['y', 'n']:
+                            periodize = input(
+                                f'{desc.loc[i]} : {valuecolumn} of {str(value)} above threshold. Periodize over year (y/n) ?')
+                            if periodize == 'y':
+                                indexes[valuecolumn] += [i]
+            # explode
+            for valuecolumn in indexes.keys():
+                if len(indexes[valuecolumn]) > 0:
+                    write_log_entry(__file__, f'exploding values for indexes : {indexes[valuecolumn]}')
+                    current = explode_values(current, valuecolumn, 'Mois', indexes[valuecolumn])
+
+            # setting the index
+            write_log_entry(__file__, f'setting the index at {start_index}')
+            current = c.set_index('Index', start_index, current)
+
+            s.store_frame(current, excluded, anterior,
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
-            s.store_frame_to_ods(global_df, ['Comptes', 'Comptes_2024.ods'], 'Mouvements')
+            if not csv_only:
+                odscomptes = pyfin.indexfinder.get_latest_file(Path(appconfig.comptes_folder))
+                if odscomptes is None:
+                    raise TypeError(f'could not find a proper comptes file in {appconfig.comptes_folder}')
+                s.store_frame_to_ods(current, odscomptes, 'Mouvements')
 
-            write_log_entry(__file__, f'{len(global_df)} rows stored')
+            write_log_entry(__file__, f'{len(current)} rows stored')
             # analysis
             write_log_entry(__file__, f'columns :')
             print(global_df.columns)
@@ -208,6 +257,12 @@ def main(args=None, config_file: Path = None):
             print(global_df.groupby('DateFilter')['Index'].count())
         else:
             write_log_entry(__file__, '0 rows to import')
+
+        # archiving
+        if archive:
+            for e in ex:
+                e.flush()
+                write_log_entry(__file__, f'archiving the content of extractor {e.name}')
 
 
 if __name__ == '__main__':

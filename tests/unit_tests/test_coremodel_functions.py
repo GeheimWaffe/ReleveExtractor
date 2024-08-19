@@ -1,12 +1,17 @@
 from unittest import TestCase
 import pandas as pd
 import datetime as dt
-from pyfin.coremodel import set_index
+from pyfin.coremodel import set_index, explode_values
 from pyfin.coremodel import add_insertdate
 from pyfin.coremodel import extract_numero_cheque
 from pyfin.coremodel import parse_numero_cheque
 from pyfin.coremodel import remove_zeroes
 from pyfin.coremodel import filter_by_date
+from pyfin.coremodel import get_transaction_description
+from pyfin.coremodel import breakdown_value
+from pyfin.coremodel import breakdown_period
+from numpy.random import randint
+from numpy.random import rand
 
 class TestCoreModelFunctions(TestCase):
 
@@ -16,10 +21,15 @@ class TestCoreModelFunctions(TestCase):
                                           , ['a', 'b', 'z', 2]
                                           , ['i', 'j', 'k', 0]]
                                       , columns=['col1', 'col2', 'col4', 'numbers'])
-        self.dataframe.set_index(pd.date_range(start=dt.date.today()-dt.timedelta(days=2), periods=len(self.dataframe), freq='D', name='Date'), inplace=True)
+        self.dataframe.set_index(
+            pd.date_range(start=dt.date.today() - dt.timedelta(days=2), periods=len(self.dataframe), freq='D',
+                          name='Date'), inplace=True)
         self.dataframe.reset_index(inplace=True)
         self.dataframe['Date'] = self.dataframe['Date'].dt.date
-
+        self.dataframe['Description'] = ['virement', 'retrait', 'transfert', 'retrait']
+        self.dataframe['Mois'] = [dt.date(dt.date.today().year, randint(1, 12), 1)]*len(self.dataframe)
+        self.dataframe['Dépense'] = rand(len(self.dataframe))
+        self.dataframe['Recette'] = rand(len(self.dataframe))
 
     def test_extract_numero_cheque(self):
         label = 'Cheque Emis 9355334'
@@ -52,7 +62,7 @@ class TestCoreModelFunctions(TestCase):
 
     def test_filter_by_date(self):
         df = self.dataframe.copy()
-        df = filter_by_date(df, dt.date.today(), dt.date.today()+dt.timedelta(days=30))
+        df = filter_by_date(df, dt.date.today(), dt.date.today() + dt.timedelta(days=30))
         # count the number of rows in the dataframe which are before today
         c_previous = len(df.loc[df['Date'] < dt.date.today()])
         check_previous = df.loc[df['DateFilter'] == 'Previous', 'Date'].count()
@@ -60,5 +70,30 @@ class TestCoreModelFunctions(TestCase):
         c_future = len(df.loc[df['Date'] >= dt.date.today()])
         check_future = df.loc[df['DateFilter'] == 'Current', 'Date'].count()
         self.assertEqual(c_future, check_future, f'incorrect number of current values')
+
+    def test_create_description(self):
+        df = self.dataframe.copy()
+        s = get_transaction_description(df)
+        print(s)
+        self.assertIsNotNone(s, f'could not produce the descriptive series')
+
+    def test_breakdown_value(self):
+        result = breakdown_value(240.0, 12)
+        self.assertIsNotNone(result, f'no array returned')
+        self.assertEqual(20, result[0])
+        self.assertEqual(12, len(result))
+
+    def test_breakdown_month(self):
+        result = breakdown_period(dt.date(2024, 8, 1), 12)
+        self.assertIsNotNone(result, f'no array returned')
+        self.assertEqual(12, len(result))
+        self.assertEqual(dt.date(2024, 1, 1), result[0])
+
+    def test_explode(self):
+        df = self.dataframe.copy()
+        df = explode_values(df, 'Dépense', 'Mois', [0,2])
+        print(df)
+        self.assertIsNotNone(df, f'could not compute the exploded dataframe')
+
     def tearDown(self):
         self.dataframe = None

@@ -49,11 +49,12 @@ class ExtractorCreditAgricole(Extractor):
                 dataframes += [pd.DataFrame(data=values, columns=headers)]
 
         # concatenating and cleaning
-        df = pd.concat(dataframes)
-        df = self.clean_releve_ca(df)
-        self.__files__ = files
-        # end
-        return df
+        if len(dataframes) > 0:
+            df = pd.concat(dataframes)
+            df = self.clean_releve_ca(df)
+            self.__files__ = files
+            # end
+            return df
 
     def clean_releve_ca(self, raw_frame: pd.DataFrame) -> pd.DataFrame:
         # Transformations
@@ -110,8 +111,9 @@ class ExtractorBoursorama(Extractor):
                              parse_dates=['dateOp', 'dateVal'])
             result += [df]
 
-        df = pd.concat(result)
-        return self.clean_releve_ba(df)
+        if len(result) > 0:
+            df = pd.concat(result)
+            return self.clean_releve_ba(df)
 
     def clean_releve_ba(self, raw_frame: pd.DataFrame) -> pd.DataFrame:
         # Transformations
