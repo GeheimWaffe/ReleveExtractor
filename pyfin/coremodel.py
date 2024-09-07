@@ -10,7 +10,7 @@ class Extractor:
 
     @property
     def name(self) -> str:
-        return ''
+        return self.__account_name__
 
     def __init__(self, account_name: str, endpoint: str, archivepoint: str):
         self.__account_name__ = account_name

@@ -8,6 +8,7 @@ import openpyxl
 import pygsheets
 import numpy as np
 import os
+import datetime as dt
 
 
 class ExtractorCreditAgricole(Extractor):
@@ -15,10 +16,6 @@ class ExtractorCreditAgricole(Extractor):
     def __init__(self, endpoint: str, archivepoint: str):
         super().__init__('Crédit Agricole', endpoint, archivepoint)
         self.__files__ = []
-
-    @property
-    def name(self) -> str:
-        return 'Crédit Agricole'
 
     def get_data(self) -> pd.DataFrame:
         files = self.get_downloaded_releve(self.__endpoint__)
@@ -76,6 +73,7 @@ class ExtractorCreditAgricole(Extractor):
         raw_frame['excluded'] = False
 
         return raw_frame
+
     # Custom functions
 
     def get_downloaded_releve(self, endpoint: str) -> []:
@@ -98,10 +96,6 @@ class ExtractorBoursorama(Extractor):
     def __init__(self, endpoint: str, archivepoint: str):
         super().__init__('Boursorama', endpoint, archivepoint)
         self.__files__ = []
-
-    @property
-    def name(self) -> str:
-        return 'Boursorama'
 
     def get_data(self) -> pd.DataFrame:
         self.__files__ = self.get_downloaded_releve(self.__endpoint__)
@@ -156,10 +150,6 @@ class ExtractorLiquide(Extractor):
         super().__init__(account_name, endpoint, archivepoint)
         self.__authentication_key__ = authentication_key
 
-    @property
-    def name(self) -> str:
-        return 'Liquide'
-
     def get_data(self) -> pd.DataFrame:
         if self.__authentication_key__ is None or self.__authentication_key__ == '':
             raise ValueError(f'No authentication key found for the extractor {self.name}')
@@ -204,8 +194,36 @@ class ExtractorLiquide(Extractor):
         return raw_frame
 
 
-def get_extractors(endpoint: str, archivepoint: str, authentification_key: str) -> []:
-    return [ExtractorCreditAgricole(endpoint, archivepoint),
-            ExtractorBoursorama(endpoint, archivepoint),
-            ExtractorLiquide('Liquide Vincent', endpoint, archivepoint, authentification_key),
-            ExtractorLiquide('Liquide Aurélie', endpoint, archivepoint, authentification_key)]
+class ExtractorTest(Extractor):
+    def get_data(self) -> pd.DataFrame:
+        """ creates a synthetic dataframe with all possible test cases"""
+        headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
+                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie',
+                   'excluded']
+
+        df = pd.DataFrame(columns=headers, data=[])
+        # create the test rows
+        # Dépense
+        df.loc[0, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'Dépense de test', 45.42344, 'Crédit Agricole']
+        # Recette
+        df.loc[1, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'Recette de test', 32.43,
+                                                                   'Boursorama']
+        # Dépense à splitter
+        df.loc[2, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'Dépense à splitter', 1000,
+                                                                   'Liquide']
+        # Recette à splitter
+        df.loc[3, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'Recette à splitter', 1500,
+                                                                   'Liquide']
+
+        # retourner le résultat
+        return df
+
+
+def get_extractors(endpoint: str, archivepoint: str, authentification_key: str, test_mode: bool) -> []:
+    if test_mode:
+        return [ExtractorTest('Test Extractor', endpoint, archivepoint)]
+    else:
+        return [ExtractorCreditAgricole(endpoint, archivepoint),
+                ExtractorBoursorama(endpoint, archivepoint),
+                ExtractorLiquide('Liquide Vincent', endpoint, archivepoint, authentification_key),
+                ExtractorLiquide('Liquide Aurélie', endpoint, archivepoint, authentification_key)]

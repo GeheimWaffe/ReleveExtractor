@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pyfin.coremodel import Extractor
+from pyfin.coremodel import Extractor, explode_values
 import datetime as dt
 import pyfin.extractors as extractors
 import pyfin.coremodel as c
@@ -41,6 +41,8 @@ def main(args=None, config_file: Path = None):
     list_mappings = False
     get_index = False
     csv_only = False
+    threshold = 0
+    testmode = False
 
     # retrieving the args
     if args is None:
@@ -62,6 +64,10 @@ def main(args=None, config_file: Path = None):
             get_index = True
         if args[i] == '--csv-only':
             csv_only = True
+        if args[i] == '--set-threshold':
+            threshold = float(args[i + 1])
+        if args[i] == '--test-mode':
+            testmode = True
         if args[i] == '--help':
             print(get_help())
             return
@@ -81,6 +87,10 @@ def main(args=None, config_file: Path = None):
     # set the exclusion list
     exclusion_list = appconfig.excluded_keywords
 
+    # set the threshold
+    if threshold <= 0:
+        threshold = appconfig.periodization_threshold
+
     # fix the credentials
     if credentials != '':
         appconfig.service_account_key = credentials
@@ -90,6 +100,7 @@ def main(args=None, config_file: Path = None):
     write_log_entry(__file__, f' interval type : {intervaltype}')
     write_log_entry(__file__, f' interval count : {intervalcount}')
     write_log_entry(__file__, f' google drive location : {appconfig.service_account_key}')
+    write_log_entry(__file__, f'periodization threshold: {appconfig.periodization_threshold}')
 
     if list_mappings:
         catmap = CategoryMapper()
@@ -158,8 +169,12 @@ def main(args=None, config_file: Path = None):
                 df = df[headers]
             except KeyError:
                 raise KeyError(f'all the columns could not be found in the dataframe extracted by {e.name}')
+            except TypeError:
+                # no dataframe found
+                pass
             # all good, we add the data
-            df_list += [df]
+            if not df is None:
+                df_list += [df]
 
         write_log_entry(__file__, f'{len(df_list)} dataframes loaded from the extractors')
         # 2nd step : merge and clean
@@ -186,9 +201,6 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'parsing the check number')
             global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
 
-            write_log_entry(__file__, f'setting the index at {start_index}')
-            global_df = c.set_index('Index', start_index, global_df)
-
             write_log_entry(__file__, f'removing the zeroes')
             global_df = c.remove_zeroes('Dépense', global_df)
             global_df = c.remove_zeroes('Recette', global_df)
@@ -199,13 +211,50 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
 
-            s.store_frame(global_df,
+            # split the dataframe
+            current, excluded, anterior = c.split_dataframes(global_df)
+            write_log_entry(__file__, f'dataframes split, current rows : {len(current)}, '
+                                      f'excluded rows : {len(excluded)}, '
+                                      f'anterior rows : {len(anterior)}')
+
+            # optional : spread some rows over the full year
+            desc = c.get_transaction_description(current)
+            indexes = {'Dépense': [], 'Recette': []}
+            # reset the index to avoid duplicates
+            current = current.reset_index(drop=True)
+            for valuecolumn in indexes.keys():
+                for i in current.index.values:
+                    value = current.loc[i, valuecolumn]
+                    periodize = ''
+                    if value is None:
+                        pass
+                    else:
+                        if value > threshold:
+                            while periodize not in ['y', 'n']:
+                                periodize = input(
+                                    f'{desc.loc[i]} : {valuecolumn} of {str(value)} above threshold. Periodize over year (y/n) ?')
+                                if periodize == 'y':
+                                    indexes[valuecolumn] += [i]
+            # explode
+            for valuecolumn in indexes.keys():
+                if len(indexes[valuecolumn]) > 0:
+                    write_log_entry(__file__, f'exploding values for indexes : {indexes[valuecolumn]}')
+                    current = explode_values(current, valuecolumn, 'Mois', indexes[valuecolumn])
+
+            # setting the index
+            write_log_entry(__file__, f'setting the index at {start_index}')
+            current = c.set_index('Index', start_index, current)
+
+            s.store_frame(current, excluded, anterior,
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
             if not csv_only:
-                s.store_frame_to_ods(global_df, ['Comptes', 'Comptes_2024.ods'], 'Mouvements')
+                odscomptes = pyfin.indexfinder.get_latest_file(Path(appconfig.comptes_folder))
+                if odscomptes is None:
+                    raise TypeError(f'could not find a proper comptes file in {appconfig.comptes_folder}')
+                s.store_frame_to_ods(current, odscomptes, 'Mouvements')
 
-            write_log_entry(__file__, f'{len(global_df)} rows stored')
+            write_log_entry(__file__, f'{len(current)} rows stored')
             # analysis
             write_log_entry(__file__, f'columns :')
             print(global_df.columns)

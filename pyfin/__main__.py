@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from numpy.lib.function_base import extract
 
 from pyfin.coremodel import Extractor, explode_values
 import datetime as dt
@@ -37,6 +38,7 @@ def main(args=None, config_file: Path = None):
 
     intervaltype = 'week'
     intervalcount = 1
+    interval_manual_mode = False
     credentials = ''
     list_mappings = False
     get_index = False
@@ -54,8 +56,10 @@ def main(args=None, config_file: Path = None):
     for i in range(len(args)):
         if args[i] == '--interval-type':
             intervaltype = args[i + 1]
+            interval_manual_mode = True
         if args[i] == '--interval-count':
             intervalcount = int(args[i + 1])
+            interval_manual_mode = True
         if args[i] == '--set-credentials':
             credentials = args[i + 1]
         if args[i] == '--list-mappings':
@@ -133,9 +137,12 @@ def main(args=None, config_file: Path = None):
                                           f'Defaulting to 0 instead')
                 start_index = 0
             try:
-                start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
-                start_date += dt.timedelta(days=1)
-                write_log_entry(__file__, f'Start date adjusted to {start_date}')
+                if not interval_manual_mode:
+                    start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
+                    start_date += dt.timedelta(days=1)
+                    write_log_entry(__file__, f'Start date adjusted to {start_date}')
+                else:
+                    pass
             except Exception as e:
                 write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
                                           f'Error : {e}'
@@ -145,7 +152,7 @@ def main(args=None, config_file: Path = None):
 
         # getting the extractors
         ex = extractors.get_extractors(appconfig.download_folder, appconfig.ca_subfolder,
-                                       authentification_key=appconfig.service_account_key)
+                                       authentification_key=appconfig.service_account_key, test_mode=testmode)
 
         # set expected columns
         headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
@@ -218,18 +225,23 @@ def main(args=None, config_file: Path = None):
                                       f'anterior rows : {len(anterior)}')
 
             # optional : spread some rows over the full year
-            desc = c.get_transaction_description(current)
             indexes = {'Dépense': [], 'Recette': []}
+            # reset the index to avoid duplicates
+            current = current.reset_index(drop=True)
+            desc = c.get_transaction_description(current)
             for valuecolumn in indexes.keys():
                 for i in current.index.values:
                     value = current.loc[i, valuecolumn]
                     periodize = ''
-                    if value > threshold:
-                        while periodize not in ['y', 'n']:
-                            periodize = input(
-                                f'{desc.loc[i]} : {valuecolumn} of {str(value)} above threshold. Periodize over year (y/n) ?')
-                            if periodize == 'y':
-                                indexes[valuecolumn] += [i]
+                    if value is None:
+                        pass
+                    else:
+                        if value > threshold:
+                            while periodize not in ['y', 'n']:
+                                periodize = input(
+                                    f'{desc.loc[i]} : {valuecolumn} of {str(value)} above threshold. Periodize over year (y/n) ?')
+                                if periodize == 'y':
+                                    indexes[valuecolumn] += [i]
             # explode
             for valuecolumn in indexes.keys():
                 if len(indexes[valuecolumn]) > 0:
