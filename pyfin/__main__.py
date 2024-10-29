@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from numpy.lib.function_base import extract
 
 from pyfin.coremodel import Extractor, explode_values
 import datetime as dt
@@ -13,7 +12,8 @@ import pyfin.indexfinder
 from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
 from pyfin.configmanager import AppConfiguration
-from pyfin.configmanager import CategoryMapper
+from pyfin.database import get_finance_engine
+from database import get_map_organismes, get_map_categories
 
 
 def get_help() -> str:
@@ -22,13 +22,16 @@ def get_help() -> str:
              "-no-archive : the files will not be archived in sub-folders\n" \
              "" \
              "following configurations can be made :" \
+             "--ods : imports the data into an ODS file" \
+             "--sql : imports the data into a SQL database" \
              "--interval-type [day|week|month] : sets the interval of data, default : week" \
              "--interval-count [number] : sets the number of intervals, default : 1" \
              "--set-credentials [path] : configures the credentials for accessing google drive" \
              "--list-mappings : list the currently configured mappings" \
              "--no-archive : do not archive the input files" \
              "--get-index: gets the latest index" \
-             "--csv-only: exports only to csv"
+             "--csv-only: exports only to csv" \
+             "--test-mode : loads from a fictitious dataset"
     return result
 
 
@@ -45,6 +48,7 @@ def main(args=None, config_file: Path = None):
     csv_only = False
     threshold = 0
     testmode = False
+    mode = 'none'
 
     # retrieving the args
     if args is None:
@@ -72,9 +76,16 @@ def main(args=None, config_file: Path = None):
             threshold = float(args[i + 1])
         if args[i] == '--test-mode':
             testmode = True
+        if args[i] == '--sql':
+            mode = 'sql'
+        if args[i] == '--ods':
+            mode = 'ods'
         if args[i] == '--help':
             print(get_help())
             return
+
+    if mode == 'none':
+        raise ValueError('No mode was selected (ODS, or SQL)')
 
     # set the options
     archive = not ("--no-archive" in args)
@@ -83,10 +94,14 @@ def main(args=None, config_file: Path = None):
     appconfig = AppConfiguration(config_file)
 
     # load category mappings
-    catmap = CategoryMapper()
-    write_log_entry(__file__, f'loading the category mappings at {appconfig.mapping_file}')
-    catmap.load_csv(Path().home().joinpath(appconfig.mapping_file))
-    write_log_entry(__file__, f'category mappings loaded : {len(catmap.get_mappins())} found')
+    write_log_entry(__file__, f'loading the category mappings from the database')
+    mapcategories = get_map_categories()
+    write_log_entry(__file__, f'category mappings loaded : {len(mapcategories)} found')
+
+    # load the organisme mappings
+    write_log_entry(__file__, f'loading the organisme mappings')
+    maporganismes = get_map_organismes()
+    write_log_entry(__file__, f'{len(maporganismes)} organismes found')
 
     # set the exclusion list
     exclusion_list = appconfig.excluded_keywords
@@ -99,23 +114,29 @@ def main(args=None, config_file: Path = None):
     if credentials != '':
         appconfig.service_account_key = credentials
 
+    # Create an engine
+    finengine = get_finance_engine()
+
     write_log_section('Defining the parameters')
     write_log_entry(__file__, f'archive the data : {archive}')
     write_log_entry(__file__, f' interval type : {intervaltype}')
     write_log_entry(__file__, f' interval count : {intervalcount}')
     write_log_entry(__file__, f' google drive location : {appconfig.service_account_key}')
     write_log_entry(__file__, f'periodization threshold: {appconfig.periodization_threshold}')
+    write_log_entry(__file__, f'mode : {mode}')
 
     if list_mappings:
-        catmap = CategoryMapper()
-        catmap.load_csv(Path.home().joinpath(appconfig.mapping_file))
-        write_log_entry(__file__, f'list of mappings from file {appconfig.mapping_file}')
-        mps = catmap.get_mappins()
-        print(mps)
+        for m in mapcategories:
+            print(m)
     elif get_index:
-        lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
-        last_index = pyfin.indexfinder.get_index_from_file(lastcompte)
-        write_log_entry(__file__, f'the last index is : {last_index}')
+        # Check the proper mode
+        if mode == 'ods':
+            lastcompte = pyfin.indexfinder.get_latest_file(Path(appconfig.extract_folder))
+            last_index = pyfin.indexfinder.get_index_from_file(lastcompte)
+            write_log_entry(__file__, f'the last index from the file is : {last_index}')
+        elif mode == 'sql':
+            last_index = pyfin.indexfinder.get_index_from_sqlite(finengine, appconfig.tablecomptes)
+            write_log_entry(__file__, f'the last index from the database is : {last_index}')
     else:
         # Calculate the last index and start, end dates
         write_log_section('Connecting to the previous exports')
@@ -127,26 +148,53 @@ def main(args=None, config_file: Path = None):
         if lastcompte is None:
             write_log_entry(__file__, f'could not find a proper file in {appconfig.extract_folder}')
         else:
-            try:
-                start_index = pyfin.indexfinder.get_index_from_file(lastcompte)
-                start_index += 1
-                write_log_entry(__file__, f'Index initialized to {start_index}')
-            except Exception as e:
-                write_log_entry(__file__, f'Could not find a proper index source in the file  {lastcompte.name}.'
+            # Setting up the start index
+            if mode == 'ods':
+                try:
+                    start_index = pyfin.indexfinder.get_index_from_file(lastcompte)
+                    start_index += 1
+                    write_log_entry(__file__, f'Index initialized to {start_index}')
+                except Exception as e:
+                    write_log_entry(__file__, f'Could not find a proper index source in the file  {lastcompte.name}.'
+                                              f'Error : {e}'
+                                              f'Defaulting to 0 instead')
+                    start_index = 0
+            if mode == 'sql':
+                try:
+                    start_index = pyfin.indexfinder.get_index_from_sqlite(finengine, appconfig.tablecomptes)
+                    write_log_entry(__file__, f'Index initialized to {start_index}')
+                except Exception as e:
+                    write_log_entry(__file__, f'Could not find a proper index source in the file  {lastcompte.name}.'
                                           f'Error : {e}'
                                           f'Defaulting to 0 instead')
-                start_index = 0
-            try:
-                if not interval_manual_mode:
-                    start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
-                    start_date += dt.timedelta(days=1)
-                    write_log_entry(__file__, f'Start date adjusted to {start_date}')
-                else:
-                    pass
-            except Exception as e:
-                write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
-                                          f'Error : {e}'
-                                          f'reverting to standard start and end date instead')
+                    start_index = 0
+
+            # Setting up the start date
+            if mode == 'ods':
+                try:
+                    if not interval_manual_mode:
+                        start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
+                        start_date += dt.timedelta(days=1)
+                        write_log_entry(__file__, f'Start date adjusted to {start_date}')
+                    else:
+                        pass
+                except Exception as e:
+                    write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
+                                              f'Error : {e}'
+                                              f'reverting to standard start and end date instead')
+            if mode == 'sql':
+                try:
+                    if not interval_manual_mode:
+                        start_date = pyfin.indexfinder.get_lastdate_from_sqlite(finengine, appconfig.tablecomptes)
+                        start_date += dt.timedelta(days=1)
+                        write_log_entry(__file__, f'Start date adjusted to {start_date}')
+                    else:
+                        pass
+                except Exception as e:
+                    write_log_entry(__file__,
+                                    f'Could not find a proper start date in folder {appconfig.extract_folder}.'
+                                    f'Error : {e}'
+                                    f'reverting to standard start and end date instead')
 
         write_log_entry(__file__, f'setting the time interval : {start_date} to {end_date}')
 
@@ -155,8 +203,8 @@ def main(args=None, config_file: Path = None):
                                        authentification_key=appconfig.service_account_key, test_mode=testmode)
 
         # set expected columns
-        headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
-                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie',
+        headers = ['Date', 'Index', 'Description', 'Dépense', 'Numéro de référence',
+                   'Recette', 'Compte', 'Catégorie',
                    'excluded']
 
         e: Extractor
@@ -206,14 +254,17 @@ def main(args=None, config_file: Path = None):
             global_df['Description'] = c.format_description(global_df['Description'])
 
             write_log_entry(__file__, f'parsing the check number')
-            global_df['N° de référence'] = c.parse_numero_cheque(global_df['Description'])
+            global_df['Numéro de référence'] = c.parse_numero_cheque(global_df['Description'])
 
             write_log_entry(__file__, f'removing the zeroes')
             global_df = c.remove_zeroes('Dépense', global_df)
             global_df = c.remove_zeroes('Recette', global_df)
 
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {appconfig.mapping_file}')
-            global_df = c.map_categories(global_df, catmap.get_mappins())
+            global_df = c.map_categories(global_df, mapcategories)
+
+            write_log_entry(__file__, f'mapping the organismes, using the database')
+            global_df = c.map_organismes(global_df, maporganismes)
 
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
@@ -256,10 +307,15 @@ def main(args=None, config_file: Path = None):
                           ['Bureau', 'ca_extract.csv'], ['Bureau', 'ca_excluded.csv'], ['Bureau', 'ca_anterior.csv'])
 
             if not csv_only:
-                odscomptes = pyfin.indexfinder.get_latest_file(Path(appconfig.comptes_folder))
-                if odscomptes is None:
-                    raise TypeError(f'could not find a proper comptes file in {appconfig.comptes_folder}')
-                s.store_frame_to_ods(current, odscomptes, 'Mouvements')
+                if mode == 'ods':
+                    # Writing to ODS
+                    odscomptes = pyfin.indexfinder.get_latest_file(Path(appconfig.comptes_folder))
+                    if odscomptes is None:
+                        raise TypeError(f'could not find a proper comptes file in {appconfig.comptes_folder}')
+                    s.store_frame_to_ods(current, odscomptes, 'Mouvements')
+                if mode == 'sql':
+                    # Writing to SQLite
+                    s.store_frame_to_sql(current, finengine, 'comptes')
 
             write_log_entry(__file__, f'{len(current)} rows stored')
             # analysis

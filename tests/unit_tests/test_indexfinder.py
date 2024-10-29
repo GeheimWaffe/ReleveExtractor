@@ -1,0 +1,18 @@
+from unittest import TestCase
+
+
+from pyfin.indexfinder import get_index_from_sqlite, get_lastdate_from_sqlite
+from pyfin.database import get_finance_engine
+from pathlib import Path
+
+class Test(TestCase):
+    def test_get_index_from_sqlite(self):
+        e = get_finance_engine()
+        index = get_index_from_sqlite(e, 'comptes', )
+        print(f'index found : {index}')
+        self.assertGreater(index, 0, 'Could not find a proper index in SQLite')
+
+    def test_get_lastdate_from_sqlite(self):
+        e = get_finance_engine()
+        dt = get_lastdate_from_sqlite(e, 'comptes')
+        print(f'date found : {dt}')

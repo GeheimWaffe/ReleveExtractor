@@ -36,3 +36,7 @@ I have discovered that only this way works
 
 ### How to test
 Once you're done you just have to call in the terminal the name of your entry point
+
+# To Do
+## fix the Nan problem
+When there's an expense with the label 'Nan', it raises an error. How to reproduce it ?

@@ -5,3 +5,4 @@ numpy~=1.25.1
 setuptools~=67.0.0
 pyasn1~=0.4.8
 odfpy~=1.4.1
+SQLAlchemy~=2.0.36

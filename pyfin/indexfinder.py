@@ -8,6 +8,9 @@ from pathlib import Path
 import pandas as pd
 import datetime as dt
 
+from sqlalchemy.engine import Engine
+from sqlalchemy import text
+
 
 def get_latest_file(folder: Path) -> Path:
     files = [f for f in folder.iterdir() if f.is_file()]
@@ -29,6 +32,11 @@ def get_index_from_file(comptes_csv: Path) -> int:
 
     return int(s.max())
 
+def get_index_from_sqlite(e: Engine, tablename: str) -> int:
+    with e.connect() as conn:
+        result = int(conn.scalar(text(f'SELECT MAX({tablename}."No") FROM {tablename} WHERE {tablename}."No" IS NOT NULL')))
+        result += 1
+    return result
 
 def get_lastdate_from_file(comptes_csv: Path) -> dt.date:
     # load the csv file
@@ -43,3 +51,8 @@ def get_lastdate_from_file(comptes_csv: Path) -> dt.date:
     s = pd.to_datetime(s).dt.date
     s = s.fillna(dt.date(2000, 1, 1))
     return s.max()
+
+def get_lastdate_from_sqlite(e: Engine, tablename: str) -> str:
+    with e.connect() as conn:
+        result = conn.scalar(text(f'SELECT MAX({tablename}."Date insertion") FROM {tablename} where {tablename}."Date insertion" IS NOT NULL'))
+    return result

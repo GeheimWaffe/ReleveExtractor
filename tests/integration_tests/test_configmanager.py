@@ -1,24 +1,19 @@
 from unittest import TestCase
-from pyfin.configmanager import CategoryMapper
 from pyfin.configmanager import AppConfiguration
 from pathlib import Path
+
+from pyfin.database import get_map_categories
+
 
 class TestCategoryMapper(TestCase):
     def setUp(self):
         self.mapping_path = 'fixtures/cat_mappings.csv'
         self.confpath = Path('fixtures/pyfin.conf')
 
-    def test_load_csv(self):
-        c = CategoryMapper()
-        print(c.load_csv(Path('wrongpath')))
-        self.assertTrue(True, 'Testing is loading nothing works')
+    def test_load_categories(self):
+        mcs = get_map_categories()
 
-        print(c.load_csv(Path(__file__)))
-        self.assertTrue(True, 'Testing loading wrong file')
-
-        print(c.load_csv(Path(self.mapping_path)))
-        l = c.get_mappins()
-        self.assertTrue(l[0][0] == 'Enedis', 'Testing the first row')
+        self.assertGreater(len(mcs), 0, 'Could not find rows')
 
     def test_config_manager(self):
         conf = AppConfiguration(self.confpath)

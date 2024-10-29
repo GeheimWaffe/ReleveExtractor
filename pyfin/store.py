@@ -1,6 +1,7 @@
 import pandas as pd
 import pathlib
 import pyfin.odfpandas as op
+from sqlalchemy import engine
 
 def store_frame(current: pd.DataFrame, excluded: pd.DataFrame, anterior: pd.DataFrame, target_folder_file: list, target_folder_excluded: list, target_folder_anterior: list):
     # save the correct rows
@@ -29,3 +30,32 @@ def store_frame_to_ods(insertable: pd.DataFrame, odsfile: pathlib.Path, comptes_
             wb.save(odsfile)
         else:
             raise KeyError(f'sheet {comptes_sheet} not found in the workbook')
+
+def store_frame_to_sql(insertable: pd.DataFrame, e: engine, table: str):
+    # remap the columns
+    print(insertable.columns)
+    insertable.rename(columns={'InsertDate': "Date insertion",
+                               'Index': 'No'}, inplace=True)
+
+    # Define expected columns
+    expected = ['No',
+                'Date',
+                'Description',
+                'Recette',
+                'Dépense',
+                'Compte',
+                'Catégorie',
+                'Mois',
+                'Date insertion',
+                'Numéro de référence',
+                'Organisme'
+    ]
+
+    insertable = insertable[expected]
+
+    print(insertable.columns)
+
+    # set the index
+    insertable.set_index('No', inplace=True)
+
+    result = int(insertable.to_sql(table, e, if_exists='append'))

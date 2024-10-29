@@ -10,6 +10,8 @@ import numpy as np
 import os
 import datetime as dt
 
+from pyfin.database import get_map_categories
+
 
 class ExtractorCreditAgricole(Extractor):
     # Implemented interfaces
@@ -63,8 +65,7 @@ class ExtractorCreditAgricole(Extractor):
         raw_frame = raw_frame.rename(columns={'Libellé': 'Description', 'Débit euros': 'Dépense',
                                               'Crédit euros': 'Recette'})
 
-        raw_frame['N° de référence'] = ''
-        raw_frame['Taux de remboursement'] = ''
+        raw_frame['Numéro de référence'] = ''
         raw_frame['Compte'] = self.__account_name__
         raw_frame['Catégorie'] = ''
         raw_frame['Date'] = raw_frame['Date'].dt.date
@@ -118,8 +119,7 @@ class ExtractorBoursorama(Extractor):
         # transform the columns
         raw_frame = raw_frame.rename(columns={'label': 'Description', 'dateOp': 'Date'})
 
-        raw_frame['N° de référence'] = ''
-        raw_frame['Taux de remboursement'] = ''
+        raw_frame['Numéro de référence'] = ''
         raw_frame['Compte'] = self.__account_name__
         raw_frame['Catégorie'] = ''
         raw_frame['Date'] = raw_frame['Date'].dt.date
@@ -185,8 +185,7 @@ class ExtractorLiquide(Extractor):
             raw_frame[col] = raw_frame[col].replace(r'^\s*$', np.nan, regex=True)
             raw_frame[col] = raw_frame[col].astype(float)
 
-        raw_frame['N° de référence'] = ''
-        raw_frame['Taux de remboursement'] = ''
+        raw_frame['Numéro de référence'] = ''
         raw_frame['Compte'] = self.__account_name__
         raw_frame['excluded'] = False
         raw_frame['Index'] = ''
@@ -197,24 +196,57 @@ class ExtractorLiquide(Extractor):
 class ExtractorTest(Extractor):
     def get_data(self) -> pd.DataFrame:
         """ creates a synthetic dataframe with all possible test cases"""
-        headers = ['Date', 'Index', 'Description', 'Dépense', 'N° de référence',
-                   'Recette', 'Taux de remboursement', 'Compte', 'Catégorie',
+        headers = ['Date', 'Index', 'Description', 'Dépense', 'Numéro de référence',
+                   'Recette', 'Compte', 'Catégorie',
                    'excluded']
 
         df = pd.DataFrame(columns=headers, data=[])
         # create the test rows
         # Dépense
-        df.loc[0, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'Dépense de test', 45.42344, 'Crédit Agricole']
+        df.loc[0, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense de test', 45.42344,
+                                                                   'Crédit Agricole']
         # Recette
-        df.loc[1, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'Recette de test', 32.43,
+        df.loc[1, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'TEST|Recette de test', 32.43,
                                                                    'Boursorama']
         # Dépense à splitter
-        df.loc[2, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'Dépense à splitter', 1000,
-                                                                   'Liquide']
+        df.loc[2, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense à splitter', 1000,
+                                                                   'Liquide Vincent']
         # Recette à splitter
-        df.loc[3, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'Recette à splitter', 1500,
-                                                                   'Liquide']
+        df.loc[3, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'TEST|Recette à splitter', 1500,
+                                                                   'Liquide Aurélie']
 
+        # Test sur le Taux remboursement
+        df.loc[4, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Remboursement dû', 150,
+                                                                   'Liquide Vincent']
+
+        # Test sur le label Nan
+        df.loc[5, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Nan', 25, 'Liquide Vincent']
+
+        # Test pour l'extraction du numéro de chèque
+        df.loc[6, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Cheque Emis 1234567', 123,
+                                                                   'Crédit Agricole']
+
+        # Test pour le parsing de l'organisme
+        df.loc[7, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
+                                                                   'TEST|VIREMENT EN VOTRE FAVEUR CAMIEG', 15,
+                                                                   'Crédit Agricole']
+        df.loc[8, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
+                                                                   'TEST|VIREMENT EN VOTRE FAVEUR CPAM DES YVELINES',
+                                                                   16,
+                                                                   'Crédit Agricole']
+        df.loc[9, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
+                                                                   'TEST|VIREMENT EN VOTRE FAVEUR MHP PRESTATIONS SANTE PLEIADE',
+                                                                   17,
+                                                                   'Crédit Agricole']
+
+        # Test pour le mapping des categories
+        mcs = get_map_categories()
+        for i in range(3):
+            df.loc[10 + i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
+                                                                            'TEST|' + mcs[i].keyword + 'keyword',
+                                                                            (i + 1) * 5.0, 'Crédit Agricole']
+
+        df['Catégorie'] = ''
         # retourner le résultat
         return df
 

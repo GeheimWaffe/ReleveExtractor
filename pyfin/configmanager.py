@@ -1,6 +1,5 @@
 from configparser import ConfigParser
 from pathlib import Path
-import csv
 
 
 class AppConfiguration:
@@ -39,6 +38,10 @@ class AppConfiguration:
 
         self.__cp__.add_section('EXCLUSIONS')
         self.__cp__['EXCLUSIONS']['keywords'] = 'REMBOURSEMENT DE PRET, ASSU. CNP PRET HABITAT, RETRAIT AU DISTRIBUTEUR'
+
+        self.__cp__.add_section('SQLITE')
+        self.__cp__['SQLITE']['path'] = '~/FinanceDB/finance.sqlite'
+        self.__cp__['SQLITE']['table_comptes'] = 'comptes'
 
         self.__cp__.add_section('OTHER')
         self.__cp__['OTHER']['periodization_threshold'] = '150'
@@ -106,23 +109,10 @@ class AppConfiguration:
     def periodization_threshold(self) -> float:
         return float(self.__cp__.get('OTHER', 'periodization_threshold'))
 
+    @property
+    def financedbpath(self) -> str:
+        return self.__cp__.get('SQLITE', 'path')
 
-class CategoryMapper:
-    """ class used for mapping categories """
-    __mappings__ = []
-
-    def load_csv(self, csv_path: Path) -> str:
-        if csv_path.exists() and csv_path.is_file() and csv_path.suffix == '.csv':
-            with open(csv_path, newline='') as csv_file:
-                reader = csv.reader(csv_file, delimiter=',', quotechar='"')
-                for line in reader:
-                    self.__mappings__.append(line)
-
-            return f'round rows : {self.__mappings__}'
-        else:
-            return f'no file found for path, path incorrect, or wrong stem : {csv_path}'
-
-    def get_mappins(self) -> list:
-        """ return the mappings
-        :return a set of (mask, category) maps"""
-        return self.__mappings__
+    @property
+    def tablecomptes(self) -> str:
+        return self.__cp__.get('SQLITE', 'table_comptes')

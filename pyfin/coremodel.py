@@ -4,6 +4,8 @@ import datetime as dt
 import re
 from numpy import round
 
+from pyfin.database import MapOrganisme, MapCategorie
+
 
 class Extractor:
     """ Abstract base class which implements the required methods"""
@@ -45,7 +47,7 @@ def set_exclusion(df: pd.DataFrame, exclusion_list: []) -> pd.DataFrame:
 
 def extract_numero_cheque(libelle: str) -> str:
     extract = re.findall('[0-9]{7}', libelle)
-    if re.match('Cheque Emis', libelle) and len(extract) > 0:
+    if re.match('.*Cheque Emis', libelle) and len(extract) > 0:
         return extract[0]
     else:
         return ''
@@ -101,10 +103,22 @@ def add_insertdate(df: pd.DataFrame, insertdate: dt.date) -> pd.DataFrame:
 
 
 def map_categories(df: pd.DataFrame, categories: []) -> pd.DataFrame:
+    """ This function assumes the Catégorie column already exists"""
+    m: MapCategorie
+
     for m in categories:
-        label = m[0]
-        categorie = m[1]
-        df.loc[df['Description'].str.contains(label), 'Catégorie'] = categorie
+        df.loc[df['Description'].str.contains(m.keyword), 'Catégorie'] = m.categorie
+
+    return df
+
+
+def map_organismes(df: pd.DataFrame, organismes: []) -> pd.DataFrame:
+    # Create the column
+    df['Organisme'] = ''
+    m: MapOrganisme
+
+    for m in organismes:
+        df.loc[df['Description'].str.contains(m.keyword), 'Organisme'] = m.organisme
 
     return df
 
@@ -125,7 +139,7 @@ def breakdown_value(value: float, periods) -> []:
 def breakdown_period(value: dt.date, periods) -> []:
     howmany = int(periods)
     if howmany > 1:
-        return [dt.date(value.year, i, 1) for i in range(1, howmany+1)]
+        return [dt.date(value.year, i, 1) for i in range(1, howmany + 1)]
     else:
         return value
 
