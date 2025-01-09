@@ -13,7 +13,7 @@ from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
 from pyfin.configmanager import AppConfiguration
 from pyfin.database import get_finance_engine
-from database import get_map_organismes, get_map_categories
+from pyfin.database import get_map_organismes, get_map_categories
 
 
 def get_help() -> str:
@@ -24,6 +24,7 @@ def get_help() -> str:
              "following configurations can be made :" \
              "--ods : imports the data into an ODS file" \
              "--sql : imports the data into a SQL database" \
+             "--sql2 : imports the data in a refined way into the SQL database" \
              "--interval-type [day|week|month] : sets the interval of data, default : week" \
              "--interval-count [number] : sets the number of intervals, default : 1" \
              "--set-credentials [path] : configures the credentials for accessing google drive" \
@@ -31,7 +32,9 @@ def get_help() -> str:
              "--no-archive : do not archive the input files" \
              "--get-index: gets the latest index" \
              "--csv-only: exports only to csv" \
-             "--test-mode : loads from a fictitious dataset"
+             "--test-mode : loads from a fictitious dataset" \
+             "--simulate : only simulates the loading, without commit"
+
     return result
 
 
@@ -49,6 +52,7 @@ def main(args=None, config_file: Path = None):
     threshold = 0
     testmode = False
     mode = 'none'
+    simulate = False
 
     # retrieving the args
     if args is None:
@@ -80,6 +84,10 @@ def main(args=None, config_file: Path = None):
             mode = 'sql'
         if args[i] == '--ods':
             mode = 'ods'
+        if args[i] == '--sql2':
+            mode = 'sql2'
+        if args[i] == '--simulate':
+            simulate = True
         if args[i] == '--help':
             print(get_help())
             return
@@ -88,7 +96,7 @@ def main(args=None, config_file: Path = None):
         raise ValueError('No mode was selected (ODS, or SQL)')
 
     # set the options
-    archive = not ("--no-archive" in args)
+    archive = not ("--no-archive" in args) or simulate
 
     # load config
     appconfig = AppConfiguration(config_file)
@@ -104,7 +112,9 @@ def main(args=None, config_file: Path = None):
     write_log_entry(__file__, f'{len(maporganismes)} organismes found')
 
     # set the exclusion list
-    exclusion_list = appconfig.excluded_keywords
+    # Deactivate the exclusion mechanism
+    # exclusion_list = appconfig.excluded_keywords
+    exclusion_list = []
 
     # set the threshold
     if threshold <= 0:
@@ -135,7 +145,7 @@ def main(args=None, config_file: Path = None):
             last_index = pyfin.indexfinder.get_index_from_file(lastcompte)
             write_log_entry(__file__, f'the last index from the file is : {last_index}')
         elif mode == 'sql':
-            last_index = pyfin.indexfinder.get_index_from_sqlite(finengine, appconfig.tablecomptes)
+            last_index = pyfin.indexfinder.get_index_from_database(finengine, appconfig.tablecomptes)
             write_log_entry(__file__, f'the last index from the database is : {last_index}')
     else:
         # Calculate the last index and start, end dates
@@ -161,12 +171,12 @@ def main(args=None, config_file: Path = None):
                     start_index = 0
             if mode == 'sql':
                 try:
-                    start_index = pyfin.indexfinder.get_index_from_sqlite(finengine, appconfig.tablecomptes)
+                    start_index = pyfin.indexfinder.get_index_from_database(finengine, appconfig.tablecomptes)
                     write_log_entry(__file__, f'Index initialized to {start_index}')
                 except Exception as e:
                     write_log_entry(__file__, f'Could not find a proper index source in the file  {lastcompte.name}.'
-                                          f'Error : {e}'
-                                          f'Defaulting to 0 instead')
+                                              f'Error : {e}'
+                                              f'Defaulting to 0 instead')
                     start_index = 0
 
             # Setting up the start date
@@ -174,20 +184,22 @@ def main(args=None, config_file: Path = None):
                 try:
                     if not interval_manual_mode:
                         start_date = pyfin.indexfinder.get_lastdate_from_file(lastcompte)
-                        start_date += dt.timedelta(days=1)
+                        # start_date += dt.timedelta(days=1)
                         write_log_entry(__file__, f'Start date adjusted to {start_date}')
                     else:
                         pass
                 except Exception as e:
-                    write_log_entry(__file__, f'Could not find a proper start date in folder {appconfig.extract_folder}.'
-                                              f'Error : {e}'
-                                              f'reverting to standard start and end date instead')
-            if mode == 'sql':
+                    write_log_entry(__file__,
+                                    f'Could not find a proper start date in folder {appconfig.extract_folder}.'
+                                    f'Error : {e}'
+                                    f'reverting to standard start and end date instead')
+            if mode == 'sql' or mode == 'sql2':
                 try:
                     if not interval_manual_mode:
-                        start_date = pyfin.indexfinder.get_lastdate_from_sqlite(finengine, appconfig.tablecomptes)
-                        start_date += dt.timedelta(days=1)
+                        start_date = pyfin.indexfinder.get_lastdate_from_database(finengine, appconfig.tablecomptes)
+                        # start_date += dt.timedelta(days=1)
                         write_log_entry(__file__, f'Start date adjusted to {start_date}')
+                        # TODO : appeler la session pour récupérer la table des dernières mises à jour
                     else:
                         pass
                 except Exception as e:
@@ -203,6 +215,7 @@ def main(args=None, config_file: Path = None):
                                        authentification_key=appconfig.service_account_key, test_mode=testmode)
 
         # set expected columns
+        # TODO : remove the excluded column
         headers = ['Date', 'Index', 'Description', 'Dépense', 'Numéro de référence',
                    'Recette', 'Compte', 'Catégorie',
                    'excluded']
@@ -229,7 +242,10 @@ def main(args=None, config_file: Path = None):
                 pass
             # all good, we add the data
             if not df is None:
+                # TODO retrieve the last update date ; set it as a column
                 df_list += [df]
+
+        # TODO : add the Date Out of Bound label to the headers, add the previous insert date in the headers
 
         write_log_entry(__file__, f'{len(df_list)} dataframes loaded from the extractors')
         # 2nd step : merge and clean
@@ -243,6 +259,7 @@ def main(args=None, config_file: Path = None):
             write_log_entry(__file__, 'adding extra columns')
             global_df = c.add_extra_columns(global_df)
 
+            # TODO : remonter le filtrage vers le haut, au moment de la récupération du dataframe
             write_log_entry(__file__, f'filtering by date')
             global_df = c.filter_by_date(global_df, start_date, end_date)
 
@@ -314,8 +331,12 @@ def main(args=None, config_file: Path = None):
                         raise TypeError(f'could not find a proper comptes file in {appconfig.comptes_folder}')
                     s.store_frame_to_ods(current, odscomptes, 'Mouvements')
                 if mode == 'sql':
-                    # Writing to SQLite
+                    # Writing to the database
                     s.store_frame_to_sql(current, finengine, 'comptes')
+                if mode == 'sql2':
+                    # Writing to the database with an improved mechanism
+                    s.store_frame_to_sql_mode_7(current, finengine, start_date, end_date, start_index,
+                                                simulate=simulate)
 
             write_log_entry(__file__, f'{len(current)} rows stored')
             # analysis

@@ -6,6 +6,7 @@ from numpy import round
 
 from pyfin.database import MapOrganisme, MapCategorie
 
+# TODO declare a keyword for the last update column name
 
 class Extractor:
     """ Abstract base class which implements the required methods"""
@@ -167,3 +168,12 @@ def split_dataframes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
     anterior = df.loc[df['DateFilter'] == 'Previous'].drop(['excluded', 'DateFilter'], axis=1)
     # end of the function
     return current, excluded, anterior
+
+def filter_dataframe_on_date(df: pd.DataFrame, value: dt.date) -> pd.DataFrame:
+    return df.loc[df['Date'] == value]
+
+def convert_last_updates_to_frame(last_updates: set) -> pd.DataFrame:
+    """ Takes a set of tuples of type (date, text) and converts them to a dataframe"""
+    df = pd.DataFrame(data=last_updates,columns=['LastUpdate', 'Compte'])
+
+    return df

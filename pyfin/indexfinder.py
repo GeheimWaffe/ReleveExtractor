@@ -32,7 +32,7 @@ def get_index_from_file(comptes_csv: Path) -> int:
 
     return int(s.max())
 
-def get_index_from_sqlite(e: Engine, tablename: str) -> int:
+def get_index_from_database(e: Engine, tablename: str) -> int:
     with e.connect() as conn:
         result = int(conn.scalar(text(f'SELECT MAX({tablename}."No") FROM {tablename} WHERE {tablename}."No" IS NOT NULL')))
         result += 1
@@ -52,7 +52,7 @@ def get_lastdate_from_file(comptes_csv: Path) -> dt.date:
     s = s.fillna(dt.date(2000, 1, 1))
     return s.max()
 
-def get_lastdate_from_sqlite(e: Engine, tablename: str) -> str:
+def get_lastdate_from_database(e: Engine, tablename: str) -> str:
     with e.connect() as conn:
         result = conn.scalar(text(f'SELECT MAX({tablename}."Date insertion") FROM {tablename} where {tablename}."Date insertion" IS NOT NULL'))
     return result

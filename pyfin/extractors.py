@@ -71,7 +71,7 @@ class ExtractorCreditAgricole(Extractor):
         raw_frame['Date'] = raw_frame['Date'].dt.date
         raw_frame['Index'] = ''
         # manage exclusions
-        raw_frame['excluded'] = False
+        raw_frame['excluded'] = False #TODO remove
 
         return raw_frame
 
@@ -125,7 +125,7 @@ class ExtractorBoursorama(Extractor):
         raw_frame['Date'] = raw_frame['Date'].dt.date
         raw_frame['Index'] = ''
         # manage exclusions
-        raw_frame['excluded'] = False
+        raw_frame['excluded'] = False # TODO remove
 
         return raw_frame
 
@@ -187,7 +187,7 @@ class ExtractorLiquide(Extractor):
 
         raw_frame['Numéro de référence'] = ''
         raw_frame['Compte'] = self.__account_name__
-        raw_frame['excluded'] = False
+        raw_frame['excluded'] = False # TODO remove the column
         raw_frame['Index'] = ''
 
         return raw_frame
@@ -239,10 +239,17 @@ class ExtractorTest(Extractor):
                                                                    17,
                                                                    'Crédit Agricole']
 
+        df.loc[10, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense aléatoire',
+                                                                    np.random.random() * 100,
+                                                                    'Boursorama']
+
+        df.loc[11, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today() - dt.timedelta(days=15), 'TEST|Dépense out of bound',
+                                                                    np.random.random() * 100,
+                                                                    'Boursorama']
         # Test pour le mapping des categories
         mcs = get_map_categories()
         for i in range(3):
-            df.loc[10 + i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
+            df.loc[12 + i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
                                                                             'TEST|' + mcs[i].keyword + 'keyword',
                                                                             (i + 1) * 5.0, 'Crédit Agricole']
 
@@ -259,3 +266,4 @@ def get_extractors(endpoint: str, archivepoint: str, authentification_key: str, 
                 ExtractorBoursorama(endpoint, archivepoint),
                 ExtractorLiquide('Liquide Vincent', endpoint, archivepoint, authentification_key),
                 ExtractorLiquide('Liquide Aurélie', endpoint, archivepoint, authentification_key)]
+
