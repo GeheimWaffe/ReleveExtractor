@@ -13,3 +13,6 @@ def write_log_section(section_name: str):
 def write_log_entry(context: str, event: str):
     p = Path(context)
     print(p.stem + ' | ' + event)
+
+def write_line():
+    print('')

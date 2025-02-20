@@ -158,12 +158,14 @@ def get_last_updates_by_account():
     e = get_finance_engine()
 
     with Session(e) as session:
-        result = session.execute(select(max(Mouvement.date_insertion), Mouvement.compte).group_by(Mouvement.compte)).all()
+        result = session.execute(
+            select(max(Mouvement.date_insertion), Mouvement.compte).where(Mouvement.date_out_of_bound == False).group_by(Mouvement.compte)).all()
 
     if result is None:
         return []
     else:
         return result
+
 
 def create_new_job_import() -> Job:
     """ Initialises a new job with a specific keyword"""
@@ -172,7 +174,25 @@ def create_new_job_import() -> Job:
 
 def get_mouvements(start_date: date, end_date: date, transaction_only: bool = False) -> list:
     # Build the statement
-    stmt = select(Mouvement).where(and_(Mouvement.date >= start_date, Mouvement.date <= end_date)).where()
+    stmt = select(Mouvement).where(
+        and_(Mouvement.date >= start_date, Mouvement.date <= end_date, Mouvement.date_out_of_bound == False)).where()
+
+    if transaction_only:
+        stmt = stmt.where(not_(and_(Mouvement.depense == None, Mouvement.recette == None)))
+
+    # execute the query
+    e = get_finance_engine()
+    with Session(e) as session:
+        result = session.scalars(stmt).all()
+
+    return [m for m in result]
+
+
+def get_mouvements_by_account(start_date: date, end_date: date, account_name: str, transaction_only: bool = False) -> list:
+    # Build the statement
+    stmt = select(Mouvement).where(
+        and_(Mouvement.date >= start_date, Mouvement.date <= end_date, Mouvement.date_out_of_bound == False,
+             Mouvement.compte == account_name)).where()
 
     if transaction_only:
         stmt = stmt.where(not_(and_(Mouvement.depense == None, Mouvement.recette == None)))

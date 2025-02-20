@@ -6,11 +6,12 @@ import pathlib
 
 from sqlalchemy.orm import Session
 
-from pyfin.logger import write_log_entry
+from pyfin.logger import write_log_entry, write_log_section, write_line
 
 import pyfin.odfpandas as op
 from sqlalchemy import engine
-from pyfin.database import Job, create_new_job_import, get_mouvements, Mouvement, is_equal_amount_compte
+from pyfin.database import Job, create_new_job_import, get_mouvements, Mouvement, is_equal_amount_compte, \
+    get_mouvements_by_account
 
 
 def store_frame(current: pd.DataFrame, excluded: pd.DataFrame, anterior: pd.DataFrame, target_folder_file: list,
@@ -132,16 +133,21 @@ def store_frame_to_sql(insertable: pd.DataFrame, e: engine, table: str):
 
 
 def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: date,
-                              end_date: date, start_index: int, simulate: bool = False):
+                              end_date: date, start_index: int, simulate: bool = False, account_name: str = None):
     """ Special mode for importing into the database"""
     # remap the columns
     insertable = validate_frame(insertable)
 
     # récupérer les mouvements futurs
     sqlcontexte = 'SQL import mode 7'
-    mvt_futurs = get_mouvements(start_date, end_date)
-
-    write_log_entry(sqlcontexte, f'retrieved {len(mvt_futurs)} over the period {start_date}, {end_date}')
+    if account_name is None:
+        write_log_entry(sqlcontexte, f'Warning ! Import is in global mode, not account specific')
+        mvt_futurs = get_mouvements(start_date, end_date)
+        write_log_entry(sqlcontexte, f'retrieved {len(mvt_futurs)} over the period {start_date}, {end_date}')
+    else:
+        write_log_entry(sqlcontexte, f'Import is done specifically for the account {account_name}')
+        mvt_futurs = get_mouvements_by_account(start_date, end_date, account_name)
+        write_log_entry(sqlcontexte, f'retrieved {len(mvt_futurs)} over the period {start_date}, {end_date} for account {account_name}')
 
     # Créer un job d'import
     importjob = create_new_job_import()
@@ -153,7 +159,9 @@ def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: d
 
     # Start of the mega-check
     with Session(e) as session:
-        for candidate in candidates:
+        for i, candidate in enumerate(candidates):
+            write_line()
+            write_log_section(f'*** Candidate n°{i}***')
             write_log_entry(sqlcontexte, f'checking candidate {candidate}...')
             # Est-ce que c'est un chèque ?
             if candidate.is_cheque():
@@ -180,7 +188,8 @@ def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: d
                     similar = similars[0]
                     write_log_entry(sqlcontexte, f'a similar transaction was found : {similar}')
                     similar.date = candidate.date
-                    similar.label_utilisateur = similar.description
+                    if similar.label_utilisateur is None:
+                        similar.label_utilisateur = similar.description
                     similar.description = candidate.description
                     candidate.date_out_of_bound = True
                     session.add(similar)
@@ -196,6 +205,7 @@ def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: d
             session.add(candidate)
             write_log_entry(sqlcontexte, f'candidate added to the session')
 
+        write_log_section('*** Handling stragglers ***')
         # Second loop : remaining mouvements
         for m in mvt_futurs:
             # shift the mouvement to the end of the period

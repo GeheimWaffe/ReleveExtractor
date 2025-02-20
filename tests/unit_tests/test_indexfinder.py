@@ -3,6 +3,7 @@ from unittest import TestCase
 
 from pyfin.indexfinder import get_index_from_database, get_lastdate_from_database
 from pyfin.database import get_finance_engine
+from pathlib import Path
 
 class Test(TestCase):
     def test_get_index_from_sqlite(self):

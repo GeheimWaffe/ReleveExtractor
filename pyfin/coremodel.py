@@ -175,5 +175,5 @@ def filter_dataframe_on_date(df: pd.DataFrame, value: dt.date) -> pd.DataFrame:
 def convert_last_updates_to_frame(last_updates: set) -> pd.DataFrame:
     """ Takes a set of tuples of type (date, text) and converts them to a dataframe"""
     df = pd.DataFrame(data=last_updates,columns=['LastUpdate', 'Compte'])
-
+    df.set_index('Compte', inplace=True)
     return df

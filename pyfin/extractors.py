@@ -204,54 +204,54 @@ class ExtractorTest(Extractor):
         # create the test rows
         # Dépense
         df.loc[0, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense de test', 45.42344,
-                                                                   'Crédit Agricole']
+                                                                   self.name]
         # Recette
         df.loc[1, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'TEST|Recette de test', 32.43,
-                                                                   'Boursorama']
+                                                                   self.name]
         # Dépense à splitter
         df.loc[2, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense à splitter', 1000,
-                                                                   'Liquide Vincent']
+                                                                   self.name]
         # Recette à splitter
         df.loc[3, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(), 'TEST|Recette à splitter', 1500,
-                                                                   'Liquide Aurélie']
+                                                                   self.name]
 
         # Test sur le Taux remboursement
         df.loc[4, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Remboursement dû', 150,
-                                                                   'Liquide Vincent']
+                                                                   self.name]
 
         # Test sur le label Nan
-        df.loc[5, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Nan', 25, 'Liquide Vincent']
+        df.loc[5, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Nan', 25, self.name]
 
         # Test pour l'extraction du numéro de chèque
         df.loc[6, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Cheque Emis 1234567', 123,
-                                                                   'Crédit Agricole']
+                                                                   self.name]
 
         # Test pour le parsing de l'organisme
         df.loc[7, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
                                                                    'TEST|VIREMENT EN VOTRE FAVEUR CAMIEG', 15,
-                                                                   'Crédit Agricole']
+                                                                   self.name]
         df.loc[8, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
                                                                    'TEST|VIREMENT EN VOTRE FAVEUR CPAM DES YVELINES',
                                                                    16,
-                                                                   'Crédit Agricole']
+                                                                   self.name]
         df.loc[9, ['Date', 'Description', 'Recette', 'Compte']] = [dt.date.today(),
                                                                    'TEST|VIREMENT EN VOTRE FAVEUR MHP PRESTATIONS SANTE PLEIADE',
                                                                    17,
-                                                                   'Crédit Agricole']
+                                                                   self.name]
 
         df.loc[10, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(), 'TEST|Dépense aléatoire',
                                                                     np.random.random() * 100,
-                                                                    'Boursorama']
+                                                                    self.name]
 
         df.loc[11, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today() - dt.timedelta(days=15), 'TEST|Dépense out of bound',
                                                                     np.random.random() * 100,
-                                                                    'Boursorama']
+                                                                    self.name]
         # Test pour le mapping des categories
         mcs = get_map_categories()
         for i in range(3):
             df.loc[12 + i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
                                                                             'TEST|' + mcs[i].keyword + 'keyword',
-                                                                            (i + 1) * 5.0, 'Crédit Agricole']
+                                                                            (i + 1) * 5.0, self.name]
 
         df['Catégorie'] = ''
         # retourner le résultat
@@ -260,7 +260,7 @@ class ExtractorTest(Extractor):
 
 def get_extractors(endpoint: str, archivepoint: str, authentification_key: str, test_mode: bool) -> []:
     if test_mode:
-        return [ExtractorTest('Test Extractor', endpoint, archivepoint)]
+        return [ExtractorTest('Compte De Test', endpoint, archivepoint)]
     else:
         return [ExtractorCreditAgricole(endpoint, archivepoint),
                 ExtractorBoursorama(endpoint, archivepoint),
