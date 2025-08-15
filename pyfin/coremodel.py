@@ -3,8 +3,9 @@ import pandas as pd
 import datetime as dt
 import re
 from numpy import round
-
+from dateutil.relativedelta import relativedelta
 from pyfin.database import MapOrganisme, MapCategorie
+from collections.abc import Iterable
 
 # TODO declare a keyword for the last update column name
 
@@ -26,6 +27,21 @@ class Extractor:
     def flush(self) -> bool:
         return True
 
+######################
+# Matching functions #
+######################
+def match_keywords(to_match: str, keywords: Iterable) -> list:
+    return [k for k in keywords if k.lower() in to_match.lower()]
+
+
+def match_first_keyword(to_match: str, keywords: Iterable) -> str:
+    matches = match_keywords(to_match, keywords)
+    return matches[0] if len(matches) > 0 else None
+
+
+def shift_month(value: dt.date, monthshift: int) -> dt.date:
+    return value.replace(day=1) + relativedelta(months=monthshift)
+
 
 def get_interval(interval_type: str, interval_count: int):
     """ calculating the interval"""
@@ -41,7 +57,7 @@ def get_interval(interval_type: str, interval_count: int):
     return start_date, end_date
 
 
-def set_exclusion(df: pd.DataFrame, exclusion_list: []) -> pd.DataFrame:
+def set_exclusion(df: pd.DataFrame, exclusion_list: Iterable) -> pd.DataFrame:
     df['excluded'] = df['Description'].apply(lambda x: any([e in x for e in exclusion_list]))
     return df
 
@@ -103,7 +119,32 @@ def add_insertdate(df: pd.DataFrame, insertdate: dt.date) -> pd.DataFrame:
     return df
 
 
-def map_categories(df: pd.DataFrame, categories: []) -> pd.DataFrame:
+def map_keywords(df: pd.DataFrame, searched_column: str, keywords: Iterable) -> pd.DataFrame:
+    """ Assigns the keyword to the searched for column"""
+    df['Keyword'] = df[searched_column].apply(match_first_keyword, keywords=keywords)
+    return df
+
+
+def map_extradata(df: pd.DataFrame, on: str, mc: pd.DataFrame) -> pd.DataFrame:
+    """ Assigns the new months"""
+    df = df.join(mc.set_index(on), on=on, how='left', rsuffix='.maps')
+
+    # assign category
+    df.loc[~df['Catégorie.maps'].isna(), 'Catégorie'] = df['Catégorie.maps']
+    # Déclarant
+    df.loc[~df['déclarant'].isna(), 'Déclarant'] = df['déclarant']
+    df['Déclarant'] = df['Déclarant'].astype(str)
+    # Organisme
+    df.loc[~df['organisme'].isna(), 'Organisme'] = df['organisme']
+    df['Organisme'] = df['Organisme'].astype(str)
+    # Mois
+    df['monthshift'].fillna(0, inplace=True)
+    df['Mois'] = df.apply(lambda x: shift_month(x.Date, x.monthshift), axis=1)
+
+    return df
+
+
+def map_categories(df: pd.DataFrame, categories: Iterable) -> pd.DataFrame:
     """ This function assumes the Catégorie column already exists"""
     m: MapCategorie
 
@@ -113,7 +154,7 @@ def map_categories(df: pd.DataFrame, categories: []) -> pd.DataFrame:
     return df
 
 
-def map_organismes(df: pd.DataFrame, organismes: []) -> pd.DataFrame:
+def map_organismes(df: pd.DataFrame, organismes: Iterable) -> pd.DataFrame:
     # Create the column
     df['Organisme'] = ''
     m: MapOrganisme
@@ -128,7 +169,7 @@ def get_transaction_description(df: pd.DataFrame) -> pd.Series:
     return df.apply(lambda x: f'Transaction {x.Description} à date du {x.Date.strftime("%d/%m/%Y")}', axis=1)
 
 
-def breakdown_value(value: float, periods) -> []:
+def breakdown_value(value: float, periods) -> Iterable:
     howmany = int(periods)
     if howmany > 1:
         return [round(value / float(howmany), 2)] * (howmany - 1) + [
@@ -169,11 +210,13 @@ def split_dataframes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
     # end of the function
     return current, excluded, anterior
 
+
 def filter_dataframe_on_date(df: pd.DataFrame, value: dt.date) -> pd.DataFrame:
     return df.loc[df['Date'] == value]
 
+
 def convert_last_updates_to_frame(last_updates: set) -> pd.DataFrame:
     """ Takes a set of tuples of type (date, text) and converts them to a dataframe"""
-    df = pd.DataFrame(data=last_updates,columns=['LastUpdate', 'Compte'])
+    df = pd.DataFrame(data=last_updates, columns=['LastUpdate', 'Compte'])
     df.set_index('Compte', inplace=True)
     return df

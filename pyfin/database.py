@@ -1,5 +1,6 @@
 from typing import List
 
+import pandas as pd
 from sqlalchemy import create_engine, select, Numeric, Date, Boolean, ForeignKey, and_, not_
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, relationship
 from sqlalchemy.orm import mapped_column
@@ -31,6 +32,14 @@ class MapCategorie(Base):
                                          comment="Le mot-clé à chercher dans la transaction")
     categorie: Mapped[str] = mapped_column('Catégorie', String,
                                            comment="La catégorie sur laquelle on va mapper la transaction")
+    declarant: Mapped[str] = mapped_column('déclarant', String, nullable=True,
+                                           comment='Le déclarant sur lequel mapper le mouvement')
+    organisme: Mapped[str] = mapped_column('organisme', String, nullable=True,
+                                           comment="L'oragnisme sur lequel mapper le mouvement")
+    monthshift: Mapped[str] = mapped_column('monthshift', Integer, nullable=True,
+                                            comment='Un entier positif ou négatif pour décaler le mois de la transaction')
+    inactif: Mapped[bool] = mapped_column('inactif', Boolean,
+                                          comment='Indique si le mapping a été inactivé')
 
     def __repr__(self):
         return f'Map {self.keyword} to {self.categorie}'
@@ -75,6 +84,8 @@ class Mouvement(Base):
     recette_initiale: Mapped[float] = mapped_column('Recette initiale', Numeric, nullable=True,
                                                     comment="La recette d'origine")
     label_utilisateur: Mapped[str] = mapped_column('Label utilisateur', String, nullable=True)
+    declarant: Mapped[str] = mapped_column('déclarant', String, nullable=True,
+                                           comment='Le déclarant pour le cas des salaires')
     job_id: Mapped[int] = mapped_column(ForeignKey('jobs.job_id'))
 
     job: Mapped[Job] = relationship(back_populates="mouvements")
@@ -144,6 +155,12 @@ def get_map_organismes():
     return result
 
 
+def get_map_categories_dataframe() -> pd.DataFrame:
+    e = get_finance_engine()
+    df = pd.read_sql(select(MapCategorie), e)
+    return df.loc[df['inactif'] == False]
+
+
 def get_map_categories():
     e = get_finance_engine()
     with Session(e) as session:
@@ -159,7 +176,8 @@ def get_last_updates_by_account():
 
     with Session(e) as session:
         result = session.execute(
-            select(max(Mouvement.date_insertion), Mouvement.compte).where(Mouvement.date_out_of_bound == False).group_by(Mouvement.compte)).all()
+            select(max(Mouvement.date_insertion), Mouvement.compte).where(
+                Mouvement.date_out_of_bound == False).group_by(Mouvement.compte)).all()
 
     if result is None:
         return []
@@ -188,7 +206,8 @@ def get_mouvements(start_date: date, end_date: date, transaction_only: bool = Fa
     return [m for m in result]
 
 
-def get_mouvements_by_account(start_date: date, end_date: date, account_name: str, transaction_only: bool = False) -> list:
+def get_mouvements_by_account(start_date: date, end_date: date, account_name: str,
+                              transaction_only: bool = False) -> list:
     # Build the statement
     stmt = select(Mouvement).where(
         and_(Mouvement.date >= start_date, Mouvement.date <= end_date, Mouvement.date_out_of_bound == False,

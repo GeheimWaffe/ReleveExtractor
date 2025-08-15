@@ -12,7 +12,7 @@ import pyfin.indexfinder
 from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
 from pyfin.configmanager import AppConfiguration
-from pyfin.database import get_finance_engine, get_last_updates_by_account
+from pyfin.database import get_finance_engine, get_last_updates_by_account, get_map_categories_dataframe
 from pyfin.database import get_map_organismes, get_map_categories
 
 
@@ -102,6 +102,7 @@ def main(args=None, config_file: Path = None):
     # load category mappings
     write_log_entry(__file__, f'loading the category mappings from the database')
     mapcategories = get_map_categories()
+    mapcategoriesdf = get_map_categories_dataframe()
     write_log_entry(__file__, f'category mappings loaded : {len(mapcategories)} found')
 
     # load the organisme mappings
@@ -131,7 +132,7 @@ def main(args=None, config_file: Path = None):
     if new_mode:
         import_mode_2(appconfig.tablecomptes, intervaltype, intervalcount,
                       appconfig.download_folder, appconfig.ca_subfolder,
-                      appconfig.service_account_key, testmode, exclusion_list, appconfig.mapping_file, mapcategories,
+                      appconfig.service_account_key, testmode, exclusion_list, appconfig.mapping_file, mapcategoriesdf,
                       maporganismes, simulate, archive)
     else:
         import_mode_1(get_index, mode, appconfig.extract_folder, appconfig.tablecomptes, intervaltype, intervalcount,
@@ -337,7 +338,7 @@ def import_mode_1(get_index: bool, mode: str, extract_folder: str, tablecomptes,
 def import_mode_2(tablecomptes, intervaltype: str, intervalcount: int,
                   download_folder: str, ca_subfolder: str,
                   service_account_key: str,
-                  testmode: bool, exclusion_list, mapping_file: str, mapcategories, maporganismes,
+                  testmode: bool, exclusion_list, mapping_file: str, mapcategoriesdf, maporganismes,
                   simulate: bool, archive: bool):
     write_log_section('launching new import mode')
 
@@ -398,7 +399,7 @@ def import_mode_2(tablecomptes, intervaltype: str, intervalcount: int,
             except KeyError:
                 write_log_entry(__file__, 'could not find a last update date. Defaulting to start date instead...')
 
-            write_log_entry(__file__, 'adding extra columns')
+            write_log_entry(__file__, 'adding extra columns : économie, réglé, mois')
             df = c.add_extra_columns(df)
 
             write_log_entry(__file__, f'filtering by date')
@@ -418,11 +419,11 @@ def import_mode_2(tablecomptes, intervaltype: str, intervalcount: int,
             df = c.remove_zeroes('Dépense', df)
             df = c.remove_zeroes('Recette', df)
 
-            write_log_entry(__file__, f'mapping to categories,using configured mapping file {mapping_file}')
-            df = c.map_categories(df, mapcategories)
+            write_log_entry(__file__, f'mapping to keywords from map catégories table')
+            df = c.map_keywords(df, 'Description', mapcategoriesdf['Keyword'].tolist())
 
-            write_log_entry(__file__, f'mapping the organismes, using the database')
-            df = c.map_organismes(df, maporganismes)
+            write_log_entry(__file__, f'enriching with the metadata from map_catégories table')
+            df = c.map_extradata(df, 'Keyword', mapcategoriesdf)
 
             write_log_entry(__file__, f'adding the current date as insertion date')
             df = c.add_insertdate(df, dt.date.today())

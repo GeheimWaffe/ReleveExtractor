@@ -169,6 +169,7 @@ class ExtractorLiquide(Extractor):
         # extract the dataframe
         cash_df = ws.get_as_df()
         # clean
+        print(cash_df)
         result = self.clean_cash_info(cash_df)
         # end
         return result
@@ -250,8 +251,23 @@ class ExtractorTest(Extractor):
         mcs = get_map_categories()
         for i in range(3):
             df.loc[12 + i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
-                                                                            'TEST|' + mcs[i].keyword + 'keyword',
+                                                                            'TEST|' + mcs[i].keyword + ' keyword',
                                                                             (i + 1) * 5.0, self.name]
+        i = 15
+
+        for m in mcs:
+            if m.declarant is not None:
+                i += 1
+                df.loc[i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
+                                                                                'TEST|Déclarant|' + m.keyword.upper() + ' keyword',
+                                                                                (i + 1) * 500.0, self.name]
+            
+            if m.monthshift is not None:
+                i += 1
+                df.loc[i, ['Date', 'Description', 'Dépense', 'Compte']] = [dt.date.today(),
+                                                                                'TEST|Month Shift|' + m.keyword.upper() + ' keyword',
+                                                                                (i + 1) * 50.0, self.name]
+
 
         df['Catégorie'] = ''
         # retourner le résultat

@@ -40,7 +40,8 @@ def validate_frame(insertable: pd.DataFrame) -> pd.DataFrame:
                 'Mois',
                 'Date insertion',
                 'Numéro de référence',
-                'Organisme'
+                'Organisme',
+                'Déclarant'
                 ]
 
     insertable = insertable[expected]
@@ -63,6 +64,11 @@ def cast_as_float(value):
     return result
 
 
+def cast_as_string(value):
+    """ Designed to handle a specificity of pandas : None values are cast to a nan string"""
+    return None if value in ('nan', '') else value
+
+
 def convert_frame_to_mouvements(df: pd.DataFrame, job: Job) -> list:
     # reset the index
     df.reset_index(inplace=True)
@@ -74,10 +80,11 @@ def convert_frame_to_mouvements(df: pd.DataFrame, job: Job) -> list:
                         depense=cast_as_float(row[4]),
                         compte=row[5],
                         categorie=row[6],
-                        no_de_reference=None if row[7] == '' else row[7],
+                        no_de_reference=cast_as_string(row[7]),
                         mois=row[8],
-                        organisme=None if row[9] == '' else row[9],
+                        organisme=cast_as_string(row[9]),
                         date_insertion=row[10],
+                        declarant=cast_as_string(row[11]),
                         job=job
                         )
               for row in zip(df['No'],
@@ -90,7 +97,8 @@ def convert_frame_to_mouvements(df: pd.DataFrame, job: Job) -> list:
                              df['Numéro de référence'],
                              df['Mois'],
                              df['Organisme'],
-                             df['Date insertion']
+                             df['Date insertion'],
+                             df['Déclarant']
                              )]
     return result
 
@@ -147,7 +155,8 @@ def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: d
     else:
         write_log_entry(sqlcontexte, f'Import is done specifically for the account {account_name}')
         mvt_futurs = get_mouvements_by_account(start_date, end_date, account_name)
-        write_log_entry(sqlcontexte, f'retrieved {len(mvt_futurs)} over the period {start_date}, {end_date} for account {account_name}')
+        write_log_entry(sqlcontexte,
+                        f'retrieved {len(mvt_futurs)} over the period {start_date}, {end_date} for account {account_name}')
 
     # Créer un job d'import
     importjob = create_new_job_import()
@@ -224,4 +233,3 @@ def store_frame_to_sql_mode_7(insertable: pd.DataFrame, e: engine, start_date: d
             write_log_entry(sqlcontexte, f'changes committed to the database')
         else:
             write_log_entry(sqlcontexte, f'no commit, simulation mode')
-
