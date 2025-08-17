@@ -13,18 +13,6 @@ class Base(DeclarativeBase):
     pass
 
 
-class MapOrganisme(Base):
-    __tablename__ = 'map_organismes'
-
-    keyword: Mapped[str] = mapped_column('Keyword', String, primary_key=True,
-                                         comment="Le mot-clé à chercher dans la transaction")
-    organisme: Mapped[str] = mapped_column('Organisme', String,
-                                           comment="Organisme qui fournit une prestation de remboursement médical")
-
-    def __repr__(self):
-        return f'Map Organisme : keyword {self.keyword} to {self.organisme}'
-
-
 class MapCategorie(Base):
     __tablename__ = 'map_categories'
 
@@ -40,6 +28,8 @@ class MapCategorie(Base):
                                             comment='Un entier positif ou négatif pour décaler le mois de la transaction')
     inactif: Mapped[bool] = mapped_column('inactif', Boolean,
                                           comment='Indique si le mapping a été inactivé')
+    employeur: Mapped[str] = mapped_column('employeur', String, nullable=True,
+                                           comment="Permet de rattacher à un employeur et d'identifier la ligne comme un salaire")
 
     def __repr__(self):
         return f'Map {self.keyword} to {self.categorie}'
@@ -86,6 +76,9 @@ class Mouvement(Base):
     label_utilisateur: Mapped[str] = mapped_column('Label utilisateur', String, nullable=True)
     declarant: Mapped[str] = mapped_column('déclarant', String, nullable=True,
                                            comment='Le déclarant pour le cas des salaires')
+    employeur: Mapped[str] = mapped_column('employeur', String, nullable=True,
+                                           comment="L'employeur ayant versé le salaire, si la transaction est un salaire")
+
     job_id: Mapped[int] = mapped_column(ForeignKey('jobs.job_id'))
 
     job: Mapped[Job] = relationship(back_populates="mouvements")
@@ -145,14 +138,6 @@ def is_equal_amount_compte(a: Mouvement, b: Mouvement) -> bool:
 
 def get_finance_engine():
     return create_engine("postgresql://regular_user:userpassword@localhost:5432/finance")
-
-
-def get_map_organismes():
-    e = get_finance_engine()
-    with Session(e) as session:
-        result = session.scalars(select(MapOrganisme)).all()
-
-    return result
 
 
 def get_map_categories_dataframe() -> pd.DataFrame:

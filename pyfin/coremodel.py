@@ -4,8 +4,9 @@ import datetime as dt
 import re
 from numpy import round
 from dateutil.relativedelta import relativedelta
-from pyfin.database import MapOrganisme, MapCategorie
+from pyfin.database import MapCategorie
 from collections.abc import Iterable
+
 
 # TODO declare a keyword for the last update column name
 
@@ -27,19 +28,23 @@ class Extractor:
     def flush(self) -> bool:
         return True
 
+
 ######################
 # Matching functions #
 ######################
 def match_keywords(to_match: str, keywords: Iterable) -> list:
+    """ Finds all the keywords contained in the string to match"""
     return [k for k in keywords if k.lower() in to_match.lower()]
 
 
 def match_first_keyword(to_match: str, keywords: Iterable) -> str:
+    """Returns the first found match"""
     matches = match_keywords(to_match, keywords)
     return matches[0] if len(matches) > 0 else None
 
 
 def shift_month(value: dt.date, monthshift: int) -> dt.date:
+    """ Shifts the given date by a number of months (positive or negative)"""
     return value.replace(day=1) + relativedelta(months=monthshift)
 
 
@@ -104,6 +109,9 @@ def remove_zeroes(column_name: str, df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_by_date(df: pd.DataFrame, start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
+    # Exclude nan
+    df = df.loc[~df['Date'].isna()]
+
     # filter
     df['DateFilter'] = 'Previous'
     df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date), 'DateFilter'] = 'Current'
@@ -140,6 +148,9 @@ def map_extradata(df: pd.DataFrame, on: str, mc: pd.DataFrame) -> pd.DataFrame:
     # Mois
     df['monthshift'].fillna(0, inplace=True)
     df['Mois'] = df.apply(lambda x: shift_month(x.Date, x.monthshift), axis=1)
+    # Employeur
+    df.loc[~df['employeur'].isna(), 'Employeur'] = df['employeur']
+    df['Employeur'] = df['Employeur'].astype(str)
 
     return df
 
@@ -150,17 +161,6 @@ def map_categories(df: pd.DataFrame, categories: Iterable) -> pd.DataFrame:
 
     for m in categories:
         df.loc[df['Description'].str.contains(m.keyword), 'Catégorie'] = m.categorie
-
-    return df
-
-
-def map_organismes(df: pd.DataFrame, organismes: Iterable) -> pd.DataFrame:
-    # Create the column
-    df['Organisme'] = ''
-    m: MapOrganisme
-
-    for m in organismes:
-        df.loc[df['Description'].str.contains(m.keyword), 'Organisme'] = m.organisme
 
     return df
 

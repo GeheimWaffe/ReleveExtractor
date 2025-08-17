@@ -41,7 +41,8 @@ def validate_frame(insertable: pd.DataFrame) -> pd.DataFrame:
                 'Date insertion',
                 'Numéro de référence',
                 'Organisme',
-                'Déclarant'
+                'Déclarant',
+                'Employeur'
                 ]
 
     insertable = insertable[expected]
@@ -85,6 +86,7 @@ def convert_frame_to_mouvements(df: pd.DataFrame, job: Job) -> list:
                         organisme=cast_as_string(row[9]),
                         date_insertion=row[10],
                         declarant=cast_as_string(row[11]),
+                        employeur=cast_as_string(row[12]),
                         job=job
                         )
               for row in zip(df['No'],
@@ -98,7 +100,8 @@ def convert_frame_to_mouvements(df: pd.DataFrame, job: Job) -> list:
                              df['Mois'],
                              df['Organisme'],
                              df['Date insertion'],
-                             df['Déclarant']
+                             df['Déclarant'],
+                             df['Employeur']
                              )]
     return result
 

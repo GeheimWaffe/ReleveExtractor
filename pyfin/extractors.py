@@ -191,7 +191,7 @@ class ExtractorLiquide(Extractor):
         raw_frame['excluded'] = False # TODO remove the column
         raw_frame['Index'] = ''
 
-        return raw_frame
+        return raw_frame.loc[raw_frame['Date'] != 'nan']
 
 
 class ExtractorTest(Extractor):

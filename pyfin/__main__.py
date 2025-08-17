@@ -13,7 +13,7 @@ from pyfin.logger import write_log_entry
 from pyfin.logger import write_log_section
 from pyfin.configmanager import AppConfiguration
 from pyfin.database import get_finance_engine, get_last_updates_by_account, get_map_categories_dataframe
-from pyfin.database import get_map_organismes, get_map_categories
+from pyfin.database import get_map_categories
 
 
 def get_help() -> str:
@@ -105,11 +105,6 @@ def main(args=None, config_file: Path = None):
     mapcategoriesdf = get_map_categories_dataframe()
     write_log_entry(__file__, f'category mappings loaded : {len(mapcategories)} found')
 
-    # load the organisme mappings
-    write_log_entry(__file__, f'loading the organisme mappings')
-    maporganismes = get_map_organismes()
-    write_log_entry(__file__, f'{len(maporganismes)} organismes found')
-
     # set the exclusion list
     # Deactivate the exclusion mechanism
     # exclusion_list = appconfig.excluded_keywords
@@ -133,18 +128,18 @@ def main(args=None, config_file: Path = None):
         import_mode_2(appconfig.tablecomptes, intervaltype, intervalcount,
                       appconfig.download_folder, appconfig.ca_subfolder,
                       appconfig.service_account_key, testmode, exclusion_list, appconfig.mapping_file, mapcategoriesdf,
-                      maporganismes, simulate, archive)
+                      simulate, archive)
     else:
         import_mode_1(get_index, mode, appconfig.extract_folder, appconfig.tablecomptes, intervaltype, intervalcount,
                       interval_manual_mode, appconfig.download_folder, appconfig.ca_subfolder, appconfig.comptes_folder,
                       appconfig.service_account_key, testmode, exclusion_list, appconfig.mapping_file, mapcategories,
-                      maporganismes, csv_only, simulate, archive)
+                      csv_only, simulate, archive)
 
 
 def import_mode_1(get_index: bool, mode: str, extract_folder: str, tablecomptes, intervaltype: str, intervalcount: int,
                   interval_manual_mode: bool, download_folder: str, ca_subfolder: str, comptes_folder: str,
                   service_account_key: str,
-                  testmode: bool, exclusion_list, mapping_file: str, mapcategories, maporganismes, csv_only: bool,
+                  testmode: bool, exclusion_list, mapping_file: str, mapcategories, csv_only: bool,
                   simulate: bool, archive: bool):
     # Create an engine
     finengine = get_finance_engine()
@@ -285,9 +280,6 @@ def import_mode_1(get_index: bool, mode: str, extract_folder: str, tablecomptes,
             write_log_entry(__file__, f'mapping to categories,using configured mapping file {mapping_file}')
             global_df = c.map_categories(global_df, mapcategories)
 
-            write_log_entry(__file__, f'mapping the organismes, using the database')
-            global_df = c.map_organismes(global_df, maporganismes)
-
             write_log_entry(__file__, f'adding the current date as insertion date')
             global_df = c.add_insertdate(global_df, dt.date.today())
 
@@ -338,7 +330,7 @@ def import_mode_1(get_index: bool, mode: str, extract_folder: str, tablecomptes,
 def import_mode_2(tablecomptes, intervaltype: str, intervalcount: int,
                   download_folder: str, ca_subfolder: str,
                   service_account_key: str,
-                  testmode: bool, exclusion_list, mapping_file: str, mapcategoriesdf, maporganismes,
+                  testmode: bool, exclusion_list, mapping_file: str, mapcategoriesdf,
                   simulate: bool, archive: bool):
     write_log_section('launching new import mode')
 
@@ -409,7 +401,7 @@ def import_mode_2(tablecomptes, intervaltype: str, intervalcount: int,
             df = c.set_exclusion(df, exclusion_list)
             write_log_entry(__file__, f'records excluded : {len(df[df["excluded"] == True])} records')
 
-            write_log_entry(__file__, f'formatting the Description')
+            write_log_entry(__file__, f'formatting the Description by switching to camelcase')
             df['Description'] = c.format_description(df['Description'])
 
             write_log_entry(__file__, f'parsing the check number')
